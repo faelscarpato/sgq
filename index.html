@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quality Management System</title>
+    <!-- jsPDF for PDF generation (text-based) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"></script>
+    <!-- Chart.js for Dashboard Charts 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+    <!-- Font Awesome for Hamburger Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* General Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font as per instructions */
+            background: linear-gradient(135deg, #3d0258 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better content flow */
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%; /* Ensure container is fluid */
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 80vh; /* Ensure it takes up a good portion of the viewport */
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #8b0ca5 10%, #0099ff 80%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative; /* Ensure overlay-menu is positioned relative to header */
+            overflow: hidden;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            z-index: 10; /* Ensure header is above other content */
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-20px, -20px) rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            flex-wrap: wrap; /* Allow tabs to wrap on smaller screens */
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            min-width: 150px; /* Ensure tabs don't get too small */
+        }
+
+        .nav-tab:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .nav-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: white;
+        }
+
+        .hamburger-menu {
+            display: none; /* Hidden by default, shown on mobile */
+            font-size: 1.8em;
+            color: white;
+            cursor: pointer;
+            padding: 0px;
+            border-bottom: 2px solid #dee2e6;
+            text-align: center;
+            z-index: 1002; /* Ensure hamburger is above overlay */
+            position: relative;
+        }
+        .overlay-menu {
+            display: none;
+            flex-direction: column;
+            background: #033653;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            z-index: 1001;
+            padding: 60px; /* Space for close button */
+        }
+        .overlay-menu.active {
+            display: outside;
+            z-index: 999;
+            padding: 20px; /* Space for close button */
+            overflow-y: auto;
+            
+        }
+
+        .overlay-menu .nav-tab {
+            width: 100%;
+            border-bottom: 1px solid #eeeeee38;
+            text-align: center;
+            color: #fff;
+            padding: 5px;
+            font-size: 1.0em;
+            font-weight: 200;
+        }
+
+        .overlay-menu .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 3em;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+
+        /* Content Area */
+        .content {
+            padding: 30px;
+            flex-grow: 1; /* Allow content to take available space */
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Report Grid for Dashboard */
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Smaller cards */
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .report-card {
+            background: #f8f9fa; /* Lighter background */
+            color: #333; /* Darker text for contrast */
+            padding: 10px; /* Slightly less padding */
+            border-radius: 12px; /* Slightly less rounded */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.03); /* Much lighter shadow */
+            border: 1px solid #e9ecef; /* Subtle border */
+            margin-bottom: 0px;
+            z-index: 1;
+        }
+
+        .report-card::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            background: linear-gradient(45deg, transparent, rgba(0,123,255,0.1), transparent); /* Subtle blue highlight */
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .report-card:hover::before {
+            opacity: 1;
+        }
+
+        .report-card:hover {
+            transform: translateY(-3px); /* Less dramatic lift */
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08); /* Lighter hover shadow */
+        }
+
+        .report-card:nth-child(2),
+        .report-card:nth-child(3) {
+            background: #f8f9fa; /* Ensure all cards have the same light background */
+        }
+
+        .report-card h3 {
+            color: #007bff; /* Keep blue for titles */
+            font-size: 1.3em; /* Slightly smaller title */
+            margin-bottom: 10px;
+        }
+
+        .report-card p {
+            color: #555; /* Ensure good contrast */
+            font-size: 0.95em;
+        }
+
+        /* Form Group Styles */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* File Input Custom Styling */
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-input-wrapper .btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            background: #6c757d;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .file-input-wrapper .btn:hover {
+            background: #5a6268;
+        }
+
+        .image-preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            border: 1px dashed #ced4da;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 80px;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .image-preview {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview .remove-image {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(220, 53, 69, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+
+        /* Button Styles */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 5px;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex; /* Use flex for button content */
+            align-items: center;
+            justify-content: center;
+            gap: 8px; /* Space between text and icon if any */
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transition: width 0.3s ease, height 0.3s ease;
+            transform: translate(-50%, -50%);
+            z-index: 0; /* Ensure it's behind the text */
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,123,255,0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40,167,69,0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255,193,7,0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220,53,69,0.3);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(23,162,184,0.3);
+        }
+
+        /* Loading Indicator */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Document Preview Modal */
+        #reportPreviewModal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1001; /* Higher than other modals */
+            justify-content: center;
+            align-items: center;
+        }
+
+        #reportPreviewModal.active {
+            display: flex;
+        }
+
+        #reportPreviewModal .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            animation: fadeIn 0.3s ease;
+            text-align: left; /* Align text left in report preview */
+        }
+
+        #reportPreviewModal .modal-content .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6c757d;
+            transition: color 0.3s ease;
+        }
+
+        #reportPreviewModal .modal-content .modal-close:hover {
+            color: #dc3545;
+        }
+
+        /* Document Preview Content within Modal */
+        #modalDocumentContent {
+            padding: 20px; /* Internal padding for the report content */
+            background-color: white;
+        }
+
+        #modalDocumentContent img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+
+        /* AI Assistant Section */
+        .ai-assistant {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .ai-assistant h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 1.6em;
+        }
+
+        .ai-assistant .icon {
+            width: 32px; /* Larger icon */
+            height: 32px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em; /* Emoji size */
+        }
+
+        /* Document List for My Documents tab */
+        #documentList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+
+        .document-item {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .document-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #007bff;
+        }
+
+        .document-item h4 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .document-item p {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .document-item .doc-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .document-item .doc-actions .btn {
+            padding: 8px 15px;
+            font-size: 0.85em;
+            margin: 0;
+        }
+
+        /* Configuration Tab Specific Styles */
+        .config-section {
+            background: #f0f4f8;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .config-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #c0d0e0;
+            padding-bottom: 10px;
+        }
+
+        .config-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+
+        .config-list li {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        }
+
+        .config-list li span {
+            font-weight: 500;
+            color: #34495e;
+        }
+
+        .config-list li .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: background-color 0.2s ease;
+        }
+
+        .config-list li .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .add-item-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .add-item-group input[type="text"],
+        .add-item-group input[type="number"] {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+        }
+
+        .add-item-group button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        /* Dashboard Chart Styles */
+        .dashboard-charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            min-height: 200px; /* Ensure charts have space */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%; /* Ensure charts don't overflow */
+            position: relative;
+            overflow: hidden; /* Prevent charts */
+
+        }
+
+        .chart-container h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.4em;
+            text-align: center;
+        }
+
+        .chart-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: center;
+
+        }
+        .chart-filters .btn {
+            flex: 1;
+            min-width: 100px; /* Ensure buttons have a minimum width */
+            padding: 10px;
+            font-size: 0.9em;
+            text-align: center;
+            background: #e9ecef;
+            color: #000000;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .chart-filters .btn:hover {
+            background: #ced4da;
+            color: #000000;
+        }
+
+        .chart-filters .btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+         .chart-data-display {
+            font-size: 1.2em;
+            color: #333;
+            text-align: center;
+            width: 100%;
+            padding: 10px;
+            line-height: 1.5;
+        }
+
+        .chart-data-display strong {
+            color: #007bff;
+            font-size: 1.5em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .chart-data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .chart-data-item:last-child {
+            border-bottom: none;
+        }
+
+
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                min-height: 100vh; /* Ensure full height on mobile */
+                flex-direction: column;
+                gap: 10px;
+            }
+            .header {
+                padding: 20px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            /* Hide regular nav tabs on small screens */
+            .nav-tabs {
+                display: none;
+            }
+            /* Show hamburger menu on small screens */
+            .hamburger-menu {
+                display: block;
+                text-align: center;
+                padding: 15px ;
+                
+                color: white;
+                font-size: 1.5em;
+                font-weight: bold;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            .header p {
+                font-size: 1em;
+            }
+            .content {
+                padding: 15px;
+            }
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+            .export-buttons {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+            /* Adjust modal size for mobile */
+            .modal-content {
+                padding: 25px;
+                max-width: 95%;
+                max-height: 95%;
+            }
+            .add-item-group {
+                flex-direction: column;
+            }
+            .dashboard-charts {
+                grid-template-columns: 1fr;
+            }
+        }
+        /* Modal base style (fix for missing .modal class) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background: rgba(0,0,0,0.5);
+        }
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sistema de Gestão de Qualidade</h1>
+           <!-- <p>Geração Profissional de Documentos com Assistente de IA</p>-->
+            <!-- Hamburger menu icon for mobile -->
+            <div class="hamburger-menu" onclick="toggleOverlayMenu()">MENU
+                
+            </div>
+        </div>
+
+        <!-- Regular navigation tabs (hidden on mobile) -->
+        <div class="nav-tabs" id="mainNavTabs">
+            <button class="nav-tab active" onclick="showTab('dashboard', this)">Dashboard</button>
+            <button class="nav-tab" onclick="showTab('reports', this)">Gerar Relatórios</button>
+            <button class="nav-tab" onclick="showTab('documents', this)">Meus Documentos</button>
+            <button class="nav-tab" onclick="showTab('settings', this)">Configurações</button>
+        </div>
+
+        <!-- Overlay menu for mobile -->
+        <div class="overlay-menu" id="overlayMenu">
+            <span class="close-btn" onclick="toggleOverlayMenu()">&times;</span>
+            <button class="nav-tab" onclick="showTab('dashboard', this); toggleOverlayMenu();">Dashboard</button>
+            <button class="nav-tab" onclick="showTab('reports', this); toggleOverlayMenu();">Gerar Relatórios</button>
+            <button class="nav-tab" onclick="showTab('documents', this); toggleOverlayMenu();">Meus Documentos</button>
+            <button class="nav-tab" onclick="showTab('settings', this); toggleOverlayMenu();">Configurações</button>
+        </div>
+
+
+        <div class="content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+               <!-- <div class="ai-assistant">
+                    <h3>
+                        <span class="icon">🤖</span>
+                        Assistente de IA Alimentado por Gemini 2.0 Flash
+                    </h3>
+                    <p>Gere relatórios de gestão de qualidade profissionais com assistência de IA. Nosso sistema usa processamento avançado de linguagem natural para criar documentação abrangente e compatível para todas as suas necessidades de gestão de qualidade.</p>
+                </div>-->
+
+                <div class="report-grid">
+                    <div class="report-card" onclick="showTab('reports', document.querySelector('#mainNavTabs .nav-tab:nth-child(2)')); selectReportType('non-conformity')">
+                        <h3>Relatório de Não Conformidade</h3>
+                        <p>Documente e rastreie produtos ou processos não conformes com análise detalhada e ações corretivas.</p>
+                    </div>
+                    <div class="report-card" onclick="showTab('reports', document.querySelector('#mainNavTabs .nav-tab:nth-child(2)')); selectReportType('injection-failure')">
+                        <h3>Falha na Injeção Plástica</h3>
+                        <p>Análise abrangente de falhas de moldagem por injeção, incluindo análise de causa raiz e medidas de prevenção.</p>
+                    </div>
+                    <div class="report-card" onclick="showTab('reports', document.querySelector('#mainNavTabs .nav-tab:nth-child(2)')); selectReportType('wrong-material')">
+                        <h3>Relatório de Material Bruto Errado</h3>
+                        <p>Documente incidentes envolvendo materiais brutos incorretos e seu impacto na qualidade da produção.</p>
+                    </div>
+                </div>
+                
+                <div class="dashboard-charts">
+                    <div class="chart-container">
+                        <h3>Defeitos Mais Comuns</h3>
+                        <div class="chart-filters">
+                            <button class="btn active" onclick="renderDashboardData('day', this)">Dia</button>
+                            <button class="btn" onclick="renderDashboardData('week', this)">Semana</button>
+                            <button class="btn" onclick="renderDashboardData('month', this)">Mês</button>
+                        </div>
+                                               <div id="defectTypeData" class="chart-data-display">Nenhum dado disponível.</div>
+                    </div>
+
+                    <div class="chart-container">
+                       <h3>Contagem por Nível de Gravidade</h3>
+                        <div id="severityData" class="chart-data-display">Nenhum dado disponível.</div>
+                    </div>
+
+                    <div class="chart-container">
+                      <h3>Contagem de Relatórios por Inspetor</h3>
+                        <div id="reporterData" class="chart-data-display">Nenhum dado disponível.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reports" class="tab-content">
+                <h2>Gerar Relatório de Gestão de Qualidade</h2>
+                
+                <div class="form-group">
+                    <label for="reportType">Tipo de Relatório</label>
+                    <select id="reportType" onchange="updateFormFields()">
+                        <option value="">Selecione o Tipo de Relatório</option>
+                        <option value="non-conformity">Relatório de Não Conformidade</option>
+                        <option value="injection-failure">Relatório de Falha na Injeção Plástica</option>
+                                              <option value="wrong-material">Relatório de Material Bruto Eroption</option>
+
+                    </select>
+                </div>
+
+                <div id="reportForm" style="display: none;">
+                    <div class="form-group">
+                        <label for="reportNumber">Número do Relatório</label>
+                        <input type="text" id="reportNumber" placeholder="Auto-gerado" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">Data</label>
+                        <input type="date" id="date">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inspector">Inspetor/Auditor</label>
+                        <select id="inspector">
+                            <option value="">Selecione o Inspetor</option>
+                            <!-- Options populated from app_settings.current_reporter_name or roles -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="department">Departamento/Área</label>
+                        <select id="department">
+                            <option value="">Selecione o Departamento</option>
+                            <!-- Options populated from app_settings.current_reporter_department or departments -->
+                        </select>
+                    </div>
+
+                    <div id="dynamicFields"></div>
+
+                    <div class="form-group">
+                        <label for="description">Descrição</label>
+                        <textarea id="description" placeholder="Descrição detalhada do problema..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="impact">Avaliação de Impacto</label>
+                        <textarea id="impact" placeholder="Avaliação do impacto na qualidade, segurança e operações..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Anexar Imagens (Opcional)</label>
+                        <div class="file-input-wrapper">
+                            <button type="button" class="btn">Selecionar Imagens</button>
+                            <input type="file" id="imageUpload" accept="image/*" multiple onchange="handleImageSelection(event)">
+                        </div>
+                        <div id="imagePreviewContainer" class="image-preview-container">
+                            Nenhuma imagem selecionada.
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="generateReport()">
+                        <span>Gerar Relatório com IA</span>
+                    </button>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Gerando relatório com assistência de IA...</p>
+                </div>
+            </div>
+
+            <!-- Documents Tab -->
+            <div id="documents" class="tab-content">
+                <h2>Biblioteca de Documentos</h2>
+                <div id="documentList">
+                    <p>Nenhum documento salvo ainda. Gere seu primeiro relatório para começar.</p>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content">
+                <h2>Configurações do Sistema</h2>
+
+                <div class="config-section">
+                    <h3>Informações do Gerador de Relatório</h3>
+                    <div class="form-group">
+                        <label for="configReporterName">Nome do Gerador</label>
+                        <input type="text" id="configReporterName" placeholder="Seu nome">
+                    </div>
+                    <div class="form-group">
+                        <label for="configReporterRole">Sua Função</label>
+                        <select id="configReporterRole">
+                            <option value="">Selecione a Função</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="configReporterDepartment">Seu Departamento</label>
+                        <select id="configReporterDepartment">
+                            <option value="">Selecione o Departamento</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="configReportCodePrefix">Prefixo Padrão do Código do Relatório</label>
+                        <input type="text" id="configReportCodePrefix" placeholder="Ex: QM-">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveAppSettings()"><span>Salvar Configurações</span></button>
+                </div>
+
+                <div class="config-section">
+                    <h3>Gerenciar Funções</h3>
+                    <div class="add-item-group">
+                        <input type="text" id="newRoleName" placeholder="Nome da nova função">
+                        <button class="btn btn-success" onclick="addConfigItem('roles')"><span>Adicionar Função</span></button>
+                    </div>
+                    <ul id="rolesList" class="config-list"></ul>
+                </div>
+
+                <div class="config-section">
+                    <h3>Gerenciar Departamentos</h3>
+                    <div class="add-item-group">
+                        <input type="text" id="newDepartmentName" placeholder="Nome do novo departamento">
+                        <button class="btn btn-success" onclick="addConfigItem('departments')"><span>Adicionar Departamento</span></button>
+                    </div>
+                    <ul id="departmentsList" class="config-list"></ul>
+                </div>
+
+                <div class="config-section">
+                    <h3>Gerenciar Máquinas</h3>
+                    <div class="add-item-group">
+                        <input type="text" id="newMachineName" placeholder="Nome da nova máquina">
+                        <input type="text" id="newMachineDescription" placeholder="Descrição (opcional)">
+                        <button class="btn btn-success" onclick="addConfigItem('machines')"><span>Adicionar Máquina</span></button>
+                    </div>
+                    <ul id="machinesList" class="config-list"></ul>
+                </div>
+
+                <div class="config-section">
+                    <h3>Gerenciar Moldes</h3>
+                    <div class="add-item-group">
+                        <input type="text" id="newMoldName" placeholder="Nome do novo molde">
+                        <input type="text" id="newMoldDescription" placeholder="Descrição (opcional)">
+                        <button class="btn btn-success" onclick="addConfigItem('molds')"><span>Adicionar Molde</span></button>
+                    </div>
+                    <ul id="moldsList" class="config-list"></ul>
+                </div>
+
+                <div class="config-section">
+                    <h3>Gerenciar Peças/Produtos</h3>
+                    <div class="add-item-group">
+                        <input type="text" id="newPartName" placeholder="Nome da nova peça">
+                        <input type="text" id="newPartCode" placeholder="Código (ex: 25A)">
+                        <input type="text" id="newPartDescription" placeholder="Descrição (opcional)">
+                        <button class="btn btn-success" onclick="addConfigItem('parts')"><span>Adicionar Peça</span></button>
+                    </div>
+                    <ul id="partsList" class="config-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Alerts -->
+    <div id="customModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="hideModal()">&times;</span>
+            <h3 id="modalTitle"></h3>
+            <p id="modalMessage"></p>
+            <button class="btn btn-primary" onclick="hideModal()"><span>OK</span></button>
+        </div>
+    </div>
+
+    <!-- Report Preview Modal -->
+    <div id="reportPreviewModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="hideReportPreviewModal()">&times;</span>
+            <div id="modalDocumentContent">
+                <!-- Report content will be loaded here -->
+            </div>
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportToPDF()">
+                    <span>Exportar para PDF</span>
+                </button>
+                <button class="btn btn-warning" onclick="exportToWord()">
+                    <span>Exportar para Word</span>
+                </button>
+                <button class="btn btn-info" onclick="generateSummarizedEmail()">
+                    <span>Gerar Email Resumido</span>
+                </button>
+                <button class="btn btn-danger" onclick="saveDocument()">
+                    <span>Salvar na Biblioteca</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+        // Supabase Configuration (provided by the user)
+        const SUPABASE_URL = 'https://vakhpfvatoikjkhtxatd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZha2hwZnZhdG9pa2praHR4YXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2MTAwNDcsImV4cCI6MjA2NzE4NjA0N30.Ei1b1CYgbrNQr0tvkmgv6inlo3ohOPsYNIedra7TPoM';
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Supabase Storage Bucket Name
+        const SUPABASE_STORAGE_BUCKET = 'report-images';
+
+        // Global variables for application state
+        let currentDocument = null; // Stores the currently generated document's HTML and metadata
+        let savedDocuments = [];    // Array to store all saved documents (synced with Supabase)
+        let reportCounter = 1;      // Counter for auto-generating report numbers
+        let appSettings = {};       // Stores global app settings from Supabase
+        let roles = [];             // List of roles from Supabase
+        let departments = [];       // List of departments from Supabase
+        let machines = [];          // List of machines from Supabase
+        let molds = [];             // List of molds from Supabase
+        let parts = [];             // List of parts from Supabase
+        let selectedFiles = [];     // Stores File objects selected for upload
+
+        
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom modal message to the user.
+         * Replaces standard browser alerts for better UX.
+         * @param {string} title - The title of the modal.
+         * @param {string} message - The message content of the modal.
+         */
+        window.showModal = function(title, message) { // Make global for onclick in HTML
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('customModal').classList.add('active');
+        }
+
+        /**
+         * Hides the custom modal.
+         */
+        window.hideModal = function() { // Make global for onclick in HTML
+            document.getElementById('customModal').classList.remove('active');
+        }
+
+        /**
+         * Shows the report preview modal.
+         */
+        window.showReportPreviewModal = function() {
+            document.getElementById('reportPreviewModal').classList.add('active');
+        }
+
+        /**
+         * Hides the report preview modal.
+         */
+        window.hideReportPreviewModal = function() {
+            document.getElementById('reportPreviewModal').classList.remove('active');
+        }
+
+        /**
+         * Formats a date string to 'DD/MM/YYYY'.
+         * @param {string} dateString - The date string (e.g., 'YYYY-MM-DD').
+         * @returns {string} Formatted date.
+         */
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR'); // Format for Brazilian Portuguese
+        }
+
+        /**
+         * Generates a unique report number based on the current year, month, and a counter.
+         */
+        function generateReportNumber() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const prefix = appSettings.report_code_prefix || 'QM-'; // Use configured prefix or default
+            const reportNum = String(reportCounter).padStart(3, '0');
+            document.getElementById('reportNumber').value = `${prefix}${year}${month}-${reportNum}`;
+            reportCounter++;
+        }
+
+        // --- Mobile Menu Logic ---
+        window.toggleOverlayMenu = function() {
+            const overlayMenu = document.getElementById('overlayMenu');
+            overlayMenu.style.display = overlayMenu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        // --- Tab Navigation Logic ---
+
+        /**
+         * Shows the selected tab and updates the active navigation button.
+         * @param {string} tabName - The ID of the tab content to show.
+         * @param {HTMLElement} clickedButton - The navigation button that was clicked.
+         */
+        window.showTab = async function(tabName, clickedButton) { // Make global for onclick in HTML
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all navigation buttons (main and overlay)
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to the clicked navigation button (if it's part of main nav)
+            if (clickedButton && clickedButton.closest('#mainNavTabs')) {
+                clickedButton.classList.add('active');
+            } else if (clickedButton && clickedButton.closest('#overlayMenu')) {
+                // If clicked from overlay, find the corresponding main nav tab and activate it
+                const mainNavTab = document.querySelector(`#mainNavTabs button[onclick*="showTab('${tabName}')"]`);
+                if (mainNavTab) {
+                    mainNavTab.classList.add('active');
+                }
+            }
+
+
+            // Perform specific actions when navigating to certain tabs
+            if (tabName === 'documents') {
+                await loadDocuments(); // Refresh the document list from Supabase
+            } else if (tabName === 'settings') {
+                await loadAppSettings(); // Load app settings
+                await loadConfigItems('roles');
+                await loadConfigItems('departments');
+                await loadConfigItems('machines');
+                await loadConfigItems('molds');
+                await loadConfigItems('parts');
+                populateReporterInfo(); // Populate reporter info in settings
+            } else if (tabName === 'reports') {
+                await populateReportFormSelects(); // Populate selects in report form
+                generateReportNumber(); // Ensure report number is updated
+                selectedFiles = []; // Clear selected images when opening report form
+                updateImagePreview();
+            } else if (tabName === 'dashboard') {
+                await loadDocuments(); // Load documents to ensure data is fresh for dashboard
+                // Ensure there's an active button for initial render, default to 'day' if none
+                renderDashboardData('day', document.querySelector('#dashboard .chart-filters .btn.active') || document.querySelector('#dashboard .chart-filters .btn:first-child')); 
+            }
+        }
+
+        /**
+         * Sets the selected report type in the dropdown and updates the form fields.
+         * Used when clicking on report cards in the Dashboard.
+         * @param {string} type - The value of the report type (e.g., 'non-conformity').
+         */
+        window.selectReportType = function(type) { // Make global for onclick in HTML
+            document.getElementById('reportType').value = type;
+            updateFormFields();
+        }
+
+        /**
+         * Dynamically updates the form fields based on the selected report type.
+         */
+        window.updateFormFields = async function() { // Make global for onchange in HTML
+            const reportType = document.getElementById('reportType').value;
+            const dynamicFields = document.getElementById('dynamicFields');
+            const reportForm = document.getElementById('reportForm');
+
+            // Clear previous dynamic fields
+            dynamicFields.innerHTML = '';
+
+            if (reportType) {
+                reportForm.style.display = 'block'; // Show the report form
+                // Add specific fields based on report type
+                let partSelectOptions = '<option value="">Selecione a Peça/Produto</option>';
+                parts.forEach(part => {
+                    partSelectOptions += `<option value="${part.id}">${part.name} (${part.code || 'N/A'})</option>`;
+                });
+
+                let machineSelectOptions = '<option value="">Selecione a Máquina</option>';
+                machines.forEach(machine => {
+                    machineSelectOptions += `<option value="${machine.id}">${machine.name}</option>`;
+                });
+
+                let moldSelectOptions = '<option value="">Selecione o Molde</option>';
+                molds.forEach(mold => {
+                    moldSelectOptions += `<option value="${mold.id}">${mold.name}</option>`;
+                });
+
+                switch (reportType) {
+                    case 'non-conformity':
+                        dynamicFields.innerHTML = `
+                            <div class="form-group">
+                                <label for="partId">ID do Produto/Lote</label>
+                                <select id="partId">
+                                    ${partSelectOptions}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="nonConformityType">Tipo de Não Conformidade</label>
+                                <select id="nonConformityType">
+                                    <option value="">Selecione o Tipo</option>
+                                    <option value="dimensional">Dimensional</option>
+                                    <option value="visual">Defeito Visual</option>
+                                    <option value="functional">Funcional</option>
+                                    <option value="material">Propriedade do Material</option>
+                                    <option value="process">Desvio de Processo</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="severity">Nível de Gravidade</label>
+                                <select id="severity">
+                                    <option value="">Selecione a Gravidade</option>
+                                    <option value="low">Baixa</option>
+                                    <option value="medium">Média</option>
+                                    <option value="high">Alta</option>
+                                    <option value="critical">Crítica</option>
+                                </select>
+                            </div>
+                        `;
+                        break;
+                    case 'injection-failure':
+                        dynamicFields.innerHTML = `
+                            <div class="form-group">
+                                <label for="machineId">ID da Máquina</label>
+                                <select id="machineId">
+                                    ${machineSelectOptions}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="moldId">ID do Molde</label>
+                                <select id="moldId">
+                                    ${moldSelectOptions}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="failureType">Tipo de Falha</label>
+                                <select id="failureType">
+                                    <option value="">Selecione o Tipo de Falha</option>
+                                    <option value="short-shot">Injeção Incompleta</option>
+                                    <option value="flash">Rebarba</option>
+                                    <option value="warpage">Empenamento</option>
+                                    <option value="sink-marks">Marcas de Contração</option>
+                                    <option value="burn-marks">Marcas de Queimadura</option>
+                                    <option value="flow-lines">Linhas de Fluxo</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="processConditions">Condições do Processo</label>
+                                <textarea id="processConditions" placeholder="Temperatura, pressão, tempo de ciclo, etc."></textarea>
+                            </div>
+                        `;
+                        break;
+                    case 'wrong-material':
+                        dynamicFields.innerHTML = `
+                            <div class="form-group">
+                                <label for="expectedMaterial">Material Esperado</label>
+                                <input type="text" id="expectedMaterial" placeholder="Especificação do material correto">
+                            </div>
+                            <div class="form-group">
+                                <label for="actualMaterial">Material Real Utilizado</label>
+                                <input type="text" id="actualMaterial" placeholder="Material incorreto utilizado">
+                            </div>
+                            <div class="form-group">
+                                <label for="supplier">Fornecedor</label>
+                                <input type="text" id="supplier" placeholder="Fornecedor do material">
+                            </div>
+                            <div class="form-group">
+                                <label for="batchNumber">Número do Lote</label>
+                                <input type="text" id="batchNumber" placeholder="Número do lote do material">
+                            </div>
+                            <div class="form-group">
+                                <label for="quantityAffected">Quantidade Afetada</label>
+                                <input type="number" id="quantityAffected" placeholder="Número de unidades afetadas">
+                            </div>
+                        `;
+                        break;
+                }
+            } else {
+                reportForm.style.display = 'none'; // Hide the form if no report type is selected
+            }
+        }
+
+        /**
+         * Populates the inspector and department selects in the report generation form.
+         */
+        async function populateReportFormSelects() {
+            // Populate Inspector/Auditor select
+            const inspectorSelect = document.getElementById('inspector');
+            inspectorSelect.innerHTML = '<option value="">Selecione o Inspetor</option>';
+            if (appSettings.current_reporter_name) {
+                inspectorSelect.innerHTML += `<option value="${appSettings.current_reporter_name}" selected>${appSettings.current_reporter_name}</option>`;
+            }
+            // Add other roles from the roles list if available
+            roles.forEach(role => {
+                if (role.name !== appSettings.current_reporter_role) { // Avoid duplicating if current role is also in general roles
+                    inspectorSelect.innerHTML += `<option value="${role.name}">${role.name}</option>`;
+                }
+            });
+
+
+            // Populate Department/Area select
+            const departmentSelect = document.getElementById('department');
+            departmentSelect.innerHTML = '<option value="">Selecione o Departamento</option>';
+            if (appSettings.current_reporter_department) {
+                departmentSelect.innerHTML += `<option value="${appSettings.current_reporter_department}" selected>${appSettings.current_reporter_department}</option>`;
+            }
+            // Add other departments from the departments list if available
+            departments.forEach(dept => {
+                if (dept.name !== appSettings.current_reporter_department) { // Avoid duplicating
+                    departmentSelect.innerHTML += `<option value="${dept.name}">${dept.name}</option>`;
+                }
+            });
+
+            // Re-call updateFormFields to populate dynamic selects (parts, machines, molds)
+            await updateFormFields();
+        }
+
+        // --- Image Upload Logic ---
+        window.handleImageSelection = function(event) {
+            const files = event.target.files;
+            selectedFiles = Array.from(files); // Store File objects
+            updateImagePreview();
+        }
+
+        function updateImagePreview() {
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            previewContainer.innerHTML = ''; // Clear previous previews
+
+            if (selectedFiles.length === 0) {
+                previewContainer.innerHTML = 'Nenhuma imagem selecionada.';
+                return;
+            }
+
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imgDiv = document.createElement('div');
+                    imgDiv.classList.add('image-preview');
+                    imgDiv.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview">
+                        <button class="remove-image" onclick="removeImage(${index})">&times;</button>
+                    `;
+                    previewContainer.appendChild(imgDiv);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        window.removeImage = function(index) {
+            selectedFiles.splice(index, 1); // Remove file from array
+            updateImagePreview(); // Re-render previews
+            // Clear the file input to allow re-selection of same file if needed
+            document.getElementById('imageUpload').value = ''; 
+        }
+
+        /**
+         * Uploads selected images to Supabase Storage.
+         * @returns {Promise<Array<string>>} A promise that resolves with an array of public image URLs.
+         */
+        async function uploadImagesToSupabase() {
+            const imageUrls = [];
+            if (selectedFiles.length === 0) {
+                return imageUrls;
+            }
+
+            for (const file of selectedFiles) {
+                const filePath = `${Date.now()}-${file.name}`; // Unique file path
+                const { data, error } = await supabase.storage
+                    .from(SUPABASE_STORAGE_BUCKET)
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false // Do not overwrite existing files with same name
+                    });
+
+                if (error) {
+                    console.error("Erro ao fazer upload da imagem:", error);
+                    showModal('Erro no Upload de Imagem', `Não foi possível fazer upload da imagem ${file.name}: ${error.message}`);
+                    continue; // Skip this image but try others
+                }
+
+                // Get public URL
+                const { data: publicUrlData } = supabase.storage
+                    .from(SUPABASE_STORAGE_BUCKET)
+                    .getPublicUrl(filePath);
+
+                if (publicUrlData && publicUrlData.publicUrl) {
+                    imageUrls.push(publicUrlData.publicUrl);
+                } else {
+                    console.error("Não foi possível obter a URL pública para:", filePath);
+                }
+            }
+            return imageUrls;
+        }
+
+
+        // --- AI Report Generation Logic ---
+
+        /**
+         * Collects all form data into a single object.
+         * @returns {object} An object containing all collected form data.
+         */
+        function collectFormData() {
+            const data = {
+                reportNumber: document.getElementById('reportNumber').value,
+                date: document.getElementById('date').value,
+                inspector: document.getElementById('inspector').value,
+                department: document.getElementById('department').value,
+                description: document.getElementById('description').value,
+                impact: document.getElementById('impact').value,
+                reportType: document.getElementById('reportType').value,
+                imageUrls: [] // Placeholder for image URLs
+            };
+
+            // Collect dynamic fields based on their IDs
+            const dynamicFields = document.getElementById('dynamicFields');
+            const inputs = dynamicFields.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                data[input.id] = input.value;
+            });
+
+            return data;
+        }
+
+        /**
+         * Generates the report content using the Gemini API.
+         * @param {string} reportType - The type of report to generate.
+         * @param {object} formData - The data collected from the form.
+         * @returns {Promise<string>} A promise that resolves with the AI-generated report content (HTML string).
+         */
+        async function generateReportContentWithAI(reportType, formData) {
+            // Get names for IDs for better AI context
+            const selectedPart = parts.find(p => p.id === formData.partId);
+            const selectedMachine = machines.find(m => m.id === formData.machineId);
+            const selectedMold = molds.find(m => m.id === formData.moldId);
+
+            let prompt = `Gere APENAS o conteúdo do corpo HTML de um relatório de gestão de qualidade profissional em português brasileiro.
+            Utilize SOMENTE as tags <h2>, <h3>, <p>, <ul>, <li>, <img> e <div class="field"> para informações chave.
+            NÃO inclua tags <html>, <head>, <body> ou <style>.
+            
+            Tipo de Relatório: ${reportType}.
+            
+            Inclua os seguintes detalhes:
+            - Número do Relatório: ${formData.reportNumber}
+            - Data: ${formatDate(formData.date)}
+            - Inspetor/Auditor: ${formData.inspector}
+            - Departamento/Área: ${formData.department}
+            - Descrição: ${formData.description}
+            - Avaliação de Impacto: ${formData.impact}
+            `;
+
+            // Add dynamic fields to the prompt based on report type
+            switch (reportType) {
+                case 'non-conformity':
+                    prompt += `
+                    - ID do Produto/Lote: ${selectedPart ? `${selectedPart.name} (Código: ${selectedPart.code || 'N/A'})` : 'N/A'}
+                    - Tipo de Não Conformidade: ${formData.nonConformityType || 'N/A'}
+                    - Nível de Gravidade: ${formData.severity || 'N/A'}
+                    
+                    O relatório deve incluir seções para:
+                    1.  Descrição Detalhada da Não Conformidade.
+                    2.  Avaliação de Impacto (na qualidade, segurança, operações).
+                    3.  Análise da Causa Raiz (forneça uma causa plausível baseada no tipo de não conformidade).
+                    4.  Ações Corretivas (imediatas, de curto prazo, de longo prazo).
+                    5.  Medidas Preventivas.
+                    `;
+                    break;
+                case 'injection-failure':
+                    prompt += `
+                    - ID da Máquina: ${selectedMachine ? selectedMachine.name : 'N/A'}
+                    - ID do Molde: ${selectedMold ? selectedMold.name : 'N/A'}
+                    - Tipo de Falha: ${formData.failureType || 'N/A'}
+                    - Condições do Processo: ${formData.processConditions || 'N/A'}
+                    
+                    O relatório deve incluir seções para:
+                    1.  Descrição Detalhada da Falha.
+                    2.  Avaliação de Impacto.
+                    3.  Análise Técnica do tipo de falha.
+                    4.  Análise da Causa Raiz (sugira causas comuns para este tipo de falha de injeção).
+                    5.  Ações Corretivas.
+                    6.  Estratégia de Prevenção.
+                    `;
+                    break;
+                case 'wrong-material':
+                    prompt += `
+                    - Material Esperado: ${formData.expectedMaterial || 'N/A'}
+                    - Material Real Utilizado: ${formData.actualMaterial || 'N/A'}
+                    - Fornecedor: ${formData.supplier || 'N/A'}
+                    - Número do Lote: ${formData.batchNumber || 'N/A'}
+                    - Quantidade Afetada: ${formData.quantityAffected || 'N/A'}
+                    
+                    O relatório deve incluir seções para:
+                    1.  Descrição Detalhada do Incidente.
+                    2.  Avaliação de Impacto (na produção, qualidade do produto, segurança).
+                    3.  Análise da Causa Raiz (por exemplo, erro do fornecedor, erro de manuseio interno).
+                    4.  Ações Corretivas (por exemplo, isolamento do material, notificação do fornecedor).
+                    5.  Medidas Preventivas (por exemplo, melhoria na inspeção de entrada, auditorias de fornecedores).
+                    `;
+                    break;
+            }
+
+            // Call Gemini API
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = "AIzaSyAVw-MT-Gb-4Wdz0XEq4vJ_GH4pWwfY3qU"; // Canvas will provide this at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Erro da API: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    return text; // Return the generated HTML content
+                } else {
+                    throw new Error("Estrutura de resposta inválida da API Gemini.");
+                }
+            } catch (error) {
+                console.error("Erro ao chamar a API Gemini:", error);
+                showModal('Erro na Geração de IA', `Não foi possível gerar o relatório com IA: ${error.message}. Por favor, tente novamente.`);
+                return `<p>Erro ao gerar o relatório. Detalhes: ${error.message}</p>`; // Fallback error message
+            }
+        }
+
+        /**
+         * Initiates the report generation process.
+         */
+        window.generateReport = async function() { // Make global for onclick in HTML
+            const reportType = document.getElementById('reportType').value;
+            if (!reportType) {
+                showModal('Tipo de Relatório Necessário', 'Por favor, selecione um tipo de relatório antes de gerar.');
+                return;
+            }
+
+            // Show loading spinner
+            document.getElementById('loading').classList.add('active');
+            
+            // Upload images first
+            let imageUrls = [];
+            try {
+                imageUrls = await uploadImagesToSupabase();
+                // Update formData with uploaded image URLs
+                const formData = collectFormData();
+                formData.imageUrls = imageUrls;
+
+                const generatedHtml = await generateReportContentWithAI(reportType, formData);
+                displayReport(generatedHtml, formData); // Pass formData to displayReport
+                showReportPreviewModal(); // Show the report in a modal
+
+            } catch (error) {
+                console.error("Falha ao gerar relatório ou fazer upload de imagens:", error);
+                // Error handled by generateReportContentWithAI's showModal or uploadImagesToSupabase's showModal
+            } finally {
+                // Hide loading spinner
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        /**
+         * Displays the generated report content in the preview area (modal).
+         * Stores the report in `currentDocument` for export/save.
+         * @param {string} htmlContent - The HTML content of the generated report.
+         * @param {object} formData - The form data associated with this report.
+         */
+        function displayReport(htmlContent, formData) {
+            const modalDocumentContentDiv = document.getElementById('modalDocumentContent');
+            modalDocumentContentDiv.innerHTML = htmlContent;
+
+            // Append images to the generated content
+            if (formData.imageUrls && formData.imageUrls.length > 0) {
+                formData.imageUrls.forEach(url => {
+                    const imgElement = document.createElement('img');
+                    imgElement.src = url;
+                    imgElement.alt = "Imagem do Relatório";
+                    modalDocumentContentDiv.appendChild(imgElement);
+                });
+            }
+
+            // Store the current document for saving/exporting
+            currentDocument = {
+                id: formData.reportNumber,
+                title: `${formData.reportType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Report`,
+                date: formData.date,
+                content: htmlContent, // Store AI-generated HTML
+                formData: formData, // Store full form data including image URLs
+                imageUrls: formData.imageUrls || [] // Store image URLs separately for easier access
+            };
+        }
+
+        // --- Document Export Functions ---
+
+        /**
+         * Exports the currently displayed report to a PDF file (text-based with images).
+         */
+        window.exportToPDF = async function() { // Make global for onclick in HTML
+            if (!currentDocument) {
+                showModal('Nenhum Documento', 'Por favor, gere um relatório primeiro para exportar para PDF.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const margin = 20; // mm
+            let y = margin;
+            const lineHeight = 7; // mm per line
+            const maxWidth = doc.internal.pageSize.width - 2 * margin;
+
+            showModal('Exportando para PDF', 'Gerando PDF em texto e imagens. Isso pode levar alguns segundos...');
+
+            try {
+                const parser = new DOMParser();
+                // Use currentDocument.content which is the AI-generated HTML
+                const htmlDoc = parser.parseFromString(currentDocument.content, 'text/html');
+                const elements = htmlDoc.body.children;
+
+                for (let i = 0; i < elements.length; i++) {
+                    const element = elements[i];
+                    const tagName = element.tagName.toLowerCase();
+                    const textContent = element.textContent.trim();
+
+                    // Skip style tags if they somehow get included (shouldn't with new prompt)
+                    if (tagName === 'style' || textContent.length === 0) { // Also skip empty elements
+                        continue;
+                    }
+
+                    // Check if current content will fit on the page, if not, add new page
+                    if (y + lineHeight > doc.internal.pageSize.height - margin) {
+                        doc.addPage();
+                        y = margin;
+                    }
+
+                    doc.setFont(undefined, 'normal'); // Reset font style for each element
+                    doc.setFontSize(12); // Default font size
+
+                    switch (tagName) {
+                        case 'h2':
+                            doc.setFontSize(20);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(textContent, margin, y);
+                            y += lineHeight * 2; // Extra space after H2
+                            break;
+                        case 'h3':
+                            doc.setFontSize(16);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(textContent, margin, y);
+                            y += lineHeight * 1.5; // Extra space after H3
+                            break;
+                        case 'p':
+                            doc.setFontSize(12);
+                            doc.setFont(undefined, 'normal');
+                            const pLines = doc.splitTextToSize(textContent, maxWidth);
+                            doc.text(pLines, margin, y);
+                            y += pLines.length * lineHeight;
+                            break;
+                        case 'ul':
+                            doc.setFontSize(12);
+                            doc.setFont(undefined, 'normal');
+                            const listItems = element.querySelectorAll('li');
+                            listItems.forEach(li => {
+                                const liText = `- ${li.textContent.trim()}`; // Add bullet
+                                const liLines = doc.splitTextToSize(liText, maxWidth - 10); // Indent list items
+                                doc.text(liLines, margin + 5, y); // Small indent
+                                y += liLines.length * lineHeight;
+                            });
+                            y += lineHeight * 0.5; // Small space after list
+                            break;
+                        case 'div': // Assuming div.field
+                            if (element.classList.contains('field')) {
+                                doc.setFontSize(12);
+                                doc.setFont(undefined, 'normal');
+                                const fieldText = textContent; // Should be "Key: Value"
+                                const fieldLines = doc.splitTextToSize(fieldText, maxWidth);
+                                doc.text(fieldLines, margin, y);
+                                y += fieldLines.length * lineHeight;
+                            }
+                            break;
+                        // Handle images
+                        case 'img':
+                            const img = element;
+                            if (img.src) {
+                                const imgData = await loadImageAsDataURL(img.src);
+                                if (imgData) {
+                                     // Create a dummy image element to get natural dimensions
+                                    const tempImg = new Image();
+                                    tempImg.src = img.src;
+                                    await new Promise(resolve => tempImg.onload = resolve); // Wait for image to load
+
+                                   
+                                    const imgPdfWidth = maxWidth; // Scale image to fit within text width
+                                    const imgPdfHeight = (tempImg.naturalHeight / tempImg.naturalWidth) * imgPdfWidth;
+
+                                    if (y + imgPdfHeight + lineHeight > doc.internal.pageSize.height - margin) {
+                                        doc.addPage();
+                                        y = margin;
+                                    }
+                                    doc.addImage(imgData, 'JPEG', margin, y, imgPdfWidth, imgPdfHeight);
+                                    y += imgPdfHeight + lineHeight; // Add space after image
+                                }
+                            }
+                            break;
+                        default:
+                            // For any other unhandled tags, just print their text content
+                            doc.setFontSize(12);
+                            doc.setFont(undefined, 'normal');
+                            const defaultLines = doc.splitTextToSize(textContent, maxWidth);
+                            doc.text(defaultLines, margin, y);
+                            y += defaultLines.length * lineHeight;
+                            break;
+                    }
+                }
+
+                // Add uploaded images that were not part of AI-generated content (if any)
+                if (currentDocument.imageUrls && currentDocument.imageUrls.length > 0) {
+                    for (const url of currentDocument.imageUrls) {
+                          // Check if this URL was already processed from the HTML content
+                        const isAlreadyProcessed = htmlDoc.body.querySelector(`img[src="${url}"]`);
+                        if (isAlreadyProcessed) {
+                            continue; // Skip if already added from HTML
+                        }
+
+                        const imgData = await loadImageAsDataURL(url);
+                        if (imgData) {
+                            // Create a dummy image element to get natural dimensions
+                            const tempImg = new Image();
+                            tempImg.src = url;
+                            await new Promise(resolve => tempImg.onload = resolve);
+
+                            const imgPdfWidth = maxWidth;
+                            const imgPdfHeight = (tempImg.naturalHeight / tempImg.naturalWidth) * imgPdfWidth;
+
+                            if (y + imgPdfHeight + lineHeight > doc.internal.pageSize.height - margin) {
+                                doc.addPage();
+                                y = margin;
+                            }
+                            doc.addImage(imgData, 'JPEG', margin, y, imgPdfWidth, imgPdfHeight);
+                            y += imgPdfHeight + lineHeight;
+                        }
+                    }
+                }
+
+
+                doc.save(`${currentDocument.title.replace(/\s/g, '_')}_${currentDocument.id}.pdf`);
+                showModal('Sucesso!', 'O relatório foi exportado para PDF com sucesso!');
+
+            } catch (error) {
+                console.error("Erro ao exportar para PDF:", error);
+                showModal('Erro na Exportação', `Não foi possível exportar para PDF: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Helper function to load an image as a Data URL for jsPDF.
+         * @param {string} url - The URL of the image.
+         * @returns {Promise<string|null>} Data URL of the image or null on error.
+         */
+        async function loadImageAsDataURL(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.error("Error loading image for PDF:", error);
+                return null;
+            }
+        }
+
+        /**
+         * Exports the currently displayed report to a Word (DOC) file.
+         */
+        window.exportToWord = function() { // Make global for onclick in HTML
+            if (!currentDocument) {
+                showModal('Nenhum Documento', 'Por favor, gere um relatório primeiro para exportar para Word.');
+                return;
+            }
+
+            // Use the content from the modal's document content div, which includes images
+            const content = document.getElementById('modalDocumentContent').innerHTML;
+            const filename = `${currentDocument.title.replace(/\s/g, '_')}_${currentDocument.id}.doc`;
+            const convertedHtml = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>${currentDocument.title}</title></head>
+                <body>
+                    ${content}
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob([convertedHtml], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url); // Clean up the URL object
+
+            showModal('Sucesso!', 'O relatório foi exportado para Word com sucesso!');
+        }
+
+        /**
+         * Generates a summarized email using AI and opens Gmail.
+         */
+        window.generateSummarizedEmail = async function() { // Make global for onclick in HTML
+            if (!currentDocument) {
+                showModal('Nenhum Documento', 'Por favor, gere um relatório primeiro para resumir e enviar por e-mail.');
+                return;
+            }
+
+            showModal('Gerando Email', 'O assistente de IA está resumindo o relatório para o e-mail...');
+
+            try {
+                const reportTitle = currentDocument.title;
+                // Use the content from the modal's document content div, which includes images
+                const reportContentHtml = document.getElementById('modalDocumentContent').innerHTML; 
+
+                // Create a temporary div to extract plain text from HTML content for the prompt
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = reportContentHtml;
+                // Remove image tags from text content for AI summarization
+                tempDiv.querySelectorAll('img').forEach(img => img.remove());
+                const plainTextContent = tempDiv.innerText || tempDiv.textContent;
+
+                // Refined prompt for AI to ensure clear subject and body separation
+                const prompt = `Gere um e-mail profissional e conciso em português brasileiro, resumindo o seguinte relatório de gestão de qualidade.
+                O e-mail deve ter um "Assunto:" claro e um "Corpo:" que destaque os pontos mais importantes, as conclusões e as ações recomendadas do relatório.
+                O tom deve ser formal e direto.
+
+                Relatório original (título: "${reportTitle}"):
+                ${plainTextContent}
+
+                Formato de saída desejado:
+                Assunto: [Assunto do E-mail]
+                Corpo: [Corpo do E-mail Resumido]`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = "AIzaSyAVw-MT-Gb-4Wdz0XEq4vJ_GH4pWwfY3qU"; // Canvas will provide this at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Erro da API: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const emailContent = result.candidates[0].content.parts[0].text;
+                    openGmail(emailContent, reportTitle); // Open Gmail with the generated content
+                    showModal('Email Gerado!', 'O e-mail resumido foi gerado e seu cliente de e-mail foi aberto.');
+                } else {
+                    throw new Error("Estrutura de resposta inválida da API Gemini.");
+                }
+            } catch (error) {
+                console.error("Erro ao gerar e-mail resumido com IA:", error);
+                showModal('Erro na Geração de E-mail', `Não foi possível gerar o e-mail resumido: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Opens the default email client with pre-filled subject and body.
+         * @param {string} emailText - The full text generated by AI, potentially containing "Assunto:" and "Corpo:".
+         * @param {string} fallbackReportTitle - A fallback title if subject cannot be extracted.
+         */
+        function openGmail(emailText, fallbackReportTitle) {
+            let subject = `Relatório de Qualidade: ${fallbackReportTitle}`;
+            let body = emailText;
+
+            // Attempt to extract subject and body from the AI-generated text
+            // Use non-greedy match for subject to avoid capturing too much if there are other sections
+            const subjectMatch = emailText.match(/Assunto:\s*(.*?)(?:\n|$)/i); // Added (?:\n|$) to match end of line or end of string
+            const bodyMatch = emailText.match(/Corpo:\s*([\s\S]*)/i);
+
+            if (subjectMatch && subjectMatch[1]) {
+                subject = subjectMatch[1].trim();
+            }
+            if (bodyMatch && bodyMatch[1]) {
+                body = bodyMatch[1].trim();
+            }
+
+            // Ensure the subject and body are properly URL-encoded
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(mailtoLink, '_blank');
+        }
+
+
+        // --- Document Management (Save/Load/Delete) Functions with Supabase ---
+
+        /**
+         * Saves the currently displayed report to Supabase.
+         */
+        window.saveDocument = async function() { // Make global for onclick in HTML
+            if (!currentDocument) {
+                showModal('Nenhum Documento', 'Não há relatório para salvar. Por favor, gere um primeiro.');
+                return;
+            }
+
+            showModal('Salvando Documento', 'Salvando o relatório na sua biblioteca...');
+
+            try {
+                // Prepare data for Supabase. Convert formData to JSON string if it contains complex objects.
+                const dataToSave = {
+                    id: currentDocument.id,
+                    title: currentDocument.title,
+                    date: currentDocument.date,
+                    content: currentDocument.content, // AI-generated HTML content
+                    image_urls: currentDocument.imageUrls || [], // Array of image URLs
+                    // Stringify formData to ensure it's stored as JSONB in Supabase
+                    form_data: JSON.stringify(currentDocument.formData),
+                    // Store IDs for machine, mold, part if they exist in formData
+                    machine_id: currentDocument.formData.machineId || null,
+                    mold_id: currentDocument.formData.moldId || null,
+                    part_id: currentDocument.formData.partId || null,
+                    // Store inspector and severity for dashboard analytics
+                    inspector: currentDocument.formData.inspector || null,
+                    severity: currentDocument.formData.severity || null,
+                    report_type_detail: currentDocument.formData.nonConformityType || currentDocument.formData.failureType || currentDocument.formData.reportType || null
+                };
+
+                // Use upsert to insert new or update existing documents
+                const { data, error } = await supabase
+                    .from('reports') // Assuming a table named 'reports' in Supabase
+                    .upsert([dataToSave], { onConflict: 'id' }); // Conflict on 'id' to update existing
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                // Refresh the local savedDocuments array and UI after successful save
+                await loadDocuments(); 
+                showModal('Documento Salvo', 'O relatório foi salvo/atualizado na sua biblioteca de documentos!');
+            } catch (error) {
+                console.error("Erro ao salvar documento no Supabase:", error);
+                showModal('Erro ao Salvar', `Não foi possível salvar o relatório: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Loads saved documents from Supabase when the application starts.
+         */
+        async function loadDocuments() {
+            try {
+                const { data, error } = await supabase
+                    .from('reports')
+                    .select('*')
+                    .order('date', { ascending: false }); // Order by date, newest first
+
+                if (error) {
+                    throw new Error(error);
+                }
+
+                // Parse form_data back to object
+                savedDocuments = data.map(doc => ({
+                    ...doc,
+                    form_data: JSON.parse(doc.form_data) // Parse form_data back to object
+                }));
+
+                // Ensure reportCounter is higher than any existing report number
+                let maxReportNum = 0;
+                savedDocuments.forEach(doc => {
+                    const match = doc.id.match(/QM-\d{6}-(\d{3})/);
+                    if (match) {
+                        const num = parseInt(match[1], 10);
+                        if (num > maxReportNum) {
+                            maxReportNum = num;
+                        }
+                    }
+                });
+                reportCounter = maxReportNum + 1;
+
+            } catch (error) {
+                console.error("Erro ao carregar documentos do Supabase:", error);
+                showModal('Erro ao Carregar', `Não foi possível carregar os relatórios: ${error.message}.`);
+                savedDocuments = []; // Clear documents if loading fails
+            } finally {
+                renderSavedDocuments(); // Always render, even if empty or error
+            }
+        }
+
+        /**
+         * Renders the list of saved documents in the 'My Documents' tab.
+         */
+        function renderSavedDocuments() {
+            const documentListDiv = document.getElementById('documentList');
+            documentListDiv.innerHTML = ''; // Clear current list
+
+            if (savedDocuments.length === 0) {
+                documentListDiv.innerHTML = '<p>Nenhum documento salvo ainda. Gere seu primeiro relatório para começar.</p>';
+                return;
+            }
+
+            savedDocuments.forEach((doc, index) => {
+                const docItem = document.createElement('div');
+                docItem.classList.add('document-item');
+                docItem.innerHTML = `
+                    <h4>${doc.title}</h4>
+                    <p><strong>Número:</strong> ${doc.id}</p>
+                    <p><strong>Data:</strong> ${formatDate(doc.date)}</p>
+                    <div class="doc-actions">
+                        <button class="btn btn-primary" onclick="viewDocument(${index})"><span>Visualizar</span></button>
+                        <button class="btn btn-danger" onclick="deleteDocument(${index})"><span>Excluir</span></button>
+                    </div>
+                `;
+                documentListDiv.appendChild(docItem);
+            });
+        }
+
+        /**
+         * Displays a specific saved document in the report preview area.
+         * @param {number} index - The index of the document in the `savedDocuments` array.
+         */
+        window.viewDocument = function(index) { // Make global for onclick in HTML
+            if (index >= 0 && index < savedDocuments.length) {
+                const docToView = savedDocuments[index];
+                // When viewing from Supabase, the 'formData' is stored as 'form_data' (stringified)
+                // Need to ensure currentDocument is populated with the correct structure
+                currentDocument = {
+                    id: docToView.id,
+                    title: docToView.title,
+                    date: docToView.date,
+                    content: docToView.content,
+                    formData: docToView.form_data, // This is already parsed by loadDocuments
+                    imageUrls: docToView.image_urls || [] // Load image URLs
+                };
+                // Display content including images
+                const modalDocumentContentDiv = document.getElementById('modalDocumentContent');
+                modalDocumentContentDiv.innerHTML = currentDocument.content;
+                if (currentDocument.imageUrls && currentDocument.imageUrls.length > 0) {
+                    currentDocument.imageUrls.forEach(url => {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = url;
+                        imgElement.alt = "Imagem do Relatório";
+                        modalDocumentContentDiv.appendChild(imgElement);
+                    });
+                }
+
+                showReportPreviewModal(); // Show the report in a modal
+            }
+        }
+
+        /**
+         * Deletes a saved document from Supabase and the local list.
+         * @param {number} index - The index of the document to delete in the `savedDocuments` array.
+         */
+        window.deleteDocument = async function(index) { // Make global for onclick in HTML
+            if (index >= 0 && index < savedDocuments.length) {
+                const docToDelete = savedDocuments[index];
+                showModal('Excluindo Documento', 'Excluindo o relatório da sua biblioteca...');
+
+                try {
+                    // Delete associated images from Supabase Storage first
+                    if (docToDelete.image_urls && docToDelete.image_urls.length > 0) {
+                        const filePathsToDelete = docToDelete.image_urls.map(url => {
+                            // Extract file path from URL (e.g., .../storage/v1/object/public/bucket_name/file_path)
+                            const parts = url.split('/');
+                            const bucketIndex = parts.indexOf(SUPABASE_STORAGE_BUCKET);
+                            if (bucketIndex > -1 && parts.length > bucketIndex + 1) {
+                                return parts.slice(bucketIndex + 1).join('/');
+                            }
+                            return null;
+                        }).filter(Boolean); // Filter out nulls
+
+                        if (filePathsToDelete.length > 0) {
+                            const { error: storageError } = await supabase.storage
+                                .from(SUPABASE_STORAGE_BUCKET)
+                                .remove(filePathsToDelete);
+
+                            if (storageError) {
+                                console.warn("Aviso: Erro ao excluir imagens do Storage:", storageError.message);
+                                // Don't throw, proceed with document deletion even if image deletion fails
+                            }
+                        }
+                    }
+
+                    const { error } = await supabase
+                        .from('reports')
+                        .delete()
+                        .eq('id', docToDelete.id); // Delete by document ID
+
+                    if (error) {
+                        throw new Error(error.message);
+                    }
+
+                    // Remove from local array and re-render
+                    savedDocuments.splice(index, 1); 
+                    renderSavedDocuments(); 
+                    showModal('Documento Excluído', 'O relatório foi removido da sua biblioteca com sucesso!');
+                } catch (error) {
+                    console.error("Erro ao excluir documento do Supabase:", error);
+                    showModal('Erro ao Excluir', `Não foi possível excluir o relatório: ${error.message}.`);
+                }
+            }
+        }
+
+        // --- Configuration Management Functions ---
+
+        /**
+         * Loads application settings from Supabase.
+         */
+        async function loadAppSettings() {
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('*')
+                    .eq('id', 'global_settings')
+                    .single(); // Expecting a single row
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
+                    throw new Error(error.message);
+                }
+
+                if (data) {
+                    appSettings = data;
+                } else {
+                    appSettings = { // Default settings if no row exists
+                        id: 'global_settings',
+                        report_code_prefix: 'QM-',
+                        current_reporter_name: '',
+                        current_reporter_role: '',
+                        current_reporter_department: ''
+                    };
+                    // Insert default settings if they don't exist
+                    const { error: insertError } = await supabase.from('app_settings').insert([appSettings]).select();
+                    if (insertError) {
+                        console.error("Erro ao inserir configurações padrão:", insertError.message);
+                        // Do not throw, just log, as we can proceed with default in-memory settings
+                    }
+                }
+                populateReporterInfo();
+                document.getElementById('configReportCodePrefix').value = appSettings.report_code_prefix || '';
+            } catch (error) {
+                console.error("Erro ao carregar configurações do aplicativo:", error);
+                showModal('Erro de Configuração', `Não foi possível carregar as configurações: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Saves application settings to Supabase.
+         */
+        window.saveAppSettings = async function() { // Make global for onclick in HTML
+            const reporterName = document.getElementById('configReporterName').value;
+            const reporterRole = document.getElementById('configReporterRole').value;
+            const reporterDepartment = document.getElementById('configReporterDepartment').value;
+            const reportCodePrefix = document.getElementById('configReportCodePrefix').value;
+
+            const updatedSettings = {
+                id: 'global_settings',
+                current_reporter_name: reporterName,
+                current_reporter_role: reporterRole,
+                current_reporter_department: reporterDepartment,
+                report_code_prefix: reportCodePrefix,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .upsert([updatedSettings], { onConflict: 'id' })
+                    .select(); // IMPORTANT: .select() ensures data is returned
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                if (data && data.length > 0) { // Safely check if data exists and is not empty
+                    appSettings = data[0]; // Update local settings with saved data
+                    showModal('Configurações Salvas', 'As configurações do aplicativo foram salvas com sucesso!');
+                    populateReporterInfo(); // Refresh UI
+                    generateReportNumber(); // Update report number prefix if changed
+                } else {
+                    // This case indicates upsert might not have returned data, but no error.
+                    // It's less common with .select(), but good to handle.
+                    showModal('Aviso', 'As configurações foram salvas, mas os dados atualizados não foram retornados. Por favor, recarregue a página se houver inconsistências.');
+                    console.warn("Supabase upsert returned no data, but no error:", data);
+                }
+            } catch (error) {
+                console.error("Erro ao salvar configurações do aplicativo:", error);
+                showModal('Erro ao Salvar Configurações', `Não foi possível salvar as configurações: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Populates the reporter info fields in the settings tab and report form.
+         */
+        function populateReporterInfo() {
+            document.getElementById('configReporterName').value = appSettings.current_reporter_name || '';
+            document.getElementById('configReportCodePrefix').value = appSettings.report_code_prefix || 'QM-';
+
+            // Populate roles and departments selects in settings
+            const configRoleSelect = document.getElementById('configReporterRole');
+            configRoleSelect.innerHTML = '<option value="">Selecione a Função</option>';
+            roles.forEach(role => {
+                const selected = (appSettings.current_reporter_role === role.name) ? 'selected' : '';
+                configRoleSelect.innerHTML += `<option value="${role.name}" ${selected}>${role.name}</option>`;
+            });
+
+            const configDepartmentSelect = document.getElementById('configReporterDepartment');
+            configDepartmentSelect.innerHTML = '<option value="">Selecione o Departamento</option>';
+            departments.forEach(dept => {
+                const selected = (appSettings.current_reporter_department === dept.name) ? 'selected' : '';
+                configDepartmentSelect.innerHTML += `<option value="${dept.name}" ${selected}>${dept.name}</option>`;
+            });
+        }
+
+
+        /**
+         * Loads configuration items (roles, departments, machines, molds, parts) from Supabase.
+         * @param {string} tableName - The name of the table to load from (e.g., 'roles', 'departments').
+         */
+        async function loadConfigItems(tableName) {
+            try {
+                const { data, error } = await supabase
+                    .from(tableName)
+                    .select('*')
+                    .order('name', { ascending: true });
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                // Update global arrays
+                switch (tableName) {
+                    case 'roles':
+                        roles = data;
+                        break;
+                    case 'departments':
+                        departments = data;
+                        break;
+                    case 'machines':
+                        machines = data;
+                        break;
+                    case 'molds':
+                        molds = data;
+                        break;
+                    case 'parts':
+                        parts = data;
+                        break;
+                }
+                renderConfigList(tableName, data); // Render the list in the settings tab
+            } catch (error) {
+                console.error(`Erro ao carregar ${tableName}:`, error);
+                showModal('Erro de Carregamento', `Não foi possível carregar os itens de ${tableName}: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Renders the list of configuration items in the settings tab.
+         * @param {string} tableName - The name of the table (e.g., 'roles', 'departments').
+         * @param {Array<object>} items - The array of items to render.
+         */
+        function renderConfigList(tableName, items) {
+            const listElement = document.getElementById(`${tableName}List`);
+            listElement.innerHTML = ''; // Clear current list
+
+            if (items.length === 0) {
+                listElement.innerHTML = `<li>Nenhum(a) ${tableName} cadastrado(a).</li>`;
+                return;
+            }
+
+            items.forEach(item => {
+                const listItem = document.createElement('li');
+                let displayText = item.name;
+                if (item.code) displayText += ` (Código: ${item.code})`;
+                if (item.description) displayText += ` - ${item.description}`;
+
+                listItem.innerHTML = `
+                    <span>${displayText}</span>
+                    <button class="delete-btn" onclick="deleteConfigItem('${tableName}', '${item.id}')">Excluir</button>
+                `;
+                listElement.appendChild(listItem);
+            });
+            // After rendering config lists, re-populate selects in settings and report form
+            populateReporterInfo();
+            populateReportFormSelects();
+        }
+
+        /**
+         * Adds a new configuration item to Supabase.
+         * @param {string} tableName - The name of the table to add to.
+         */
+        window.addConfigItem = async function(tableName) { // Make global for onclick in HTML
+            let newItem = {};
+            let inputId = '';
+            let inputDescriptionId = '';
+            let inputCodeId = '';
+
+            switch (tableName) {
+                case 'roles':
+                    inputId = 'newRoleName';
+                    newItem.name = document.getElementById(inputId).value.trim();
+                    break;
+                case 'departments':
+                    inputId = 'newDepartmentName';
+                    newItem.name = document.getElementById(inputId).value.trim();
+                    break;
+                case 'machines':
+                    inputId = 'newMachineName';
+                    inputDescriptionId = 'newMachineDescription';
+                    newItem.name = document.getElementById(inputId).value.trim();
+                    newItem.description = document.getElementById(inputDescriptionId).value.trim();
+                    break;
+                case 'molds':
+                    inputId = 'newMoldName';
+                    inputDescriptionId = 'newMoldDescription';
+                    newItem.name = document.getElementById(inputId).value.trim();
+                    newItem.description = document.getElementById(inputDescriptionId).value.trim();
+                    break;
+                case 'parts':
+                    inputId = 'newPartName';
+                    inputCodeId = 'newPartCode';
+                    inputDescriptionId = 'newPartDescription';
+                    newItem.name = document.getElementById(inputId).value.trim();
+                    newItem.code = document.getElementById(inputCodeId).value.trim();
+                    newItem.description = document.getElementById(inputDescriptionId).value.trim();
+                    break;
+                default:
+                    showModal('Erro', 'Tipo de configuração desconhecido.');
+                    return;
+            }
+
+            if (!newItem.name) {
+                showModal('Entrada Inválida', `Por favor, insira um nome para o(a) novo(a) ${tableName.slice(0, -1)}.`);
+                return;
+            }
+
+            showModal('Adicionando Item', `Adicionando novo(a) ${newItem.name}...`);
+
+            try {
+                const { data, error } = await supabase
+                    .from(tableName)
+                    .insert([newItem])
+                    .select();
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                document.getElementById(inputId).value = ''; // Clear input
+                if (inputDescriptionId) document.getElementById(inputDescriptionId).value = '';
+                if (inputCodeId) document.getElementById(inputCodeId).value = '';
+
+                await loadConfigItems(tableName); // Reload list to show new item
+                showModal('Sucesso!', `${newItem.name} adicionado(a) com sucesso!`);
+            } catch (error) {
+                console.error(`Erro ao adicionar ${tableName}:`, error);
+                showModal('Erro ao Adicionar', `Não foi possível adicionar o(a) ${newItem.name}: ${error.message}.`);
+            }
+        }
+
+        /**
+         * Deletes a configuration item from Supabase.
+         * @param {string} tableName - The name of the table to delete from.
+         * @param {string} id - The ID of the item to delete.
+         */
+        window.deleteConfigItem = async function(tableName, id) { // Make global for onclick in HTML
+            showModal('Excluindo Item', `Excluindo item de ${tableName}...`);
+            try {
+                const { error } = await supabase
+                    .from(tableName)
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                await loadConfigItems(tableName); // Reload list
+                showModal('Sucesso!', 'Item excluído com sucesso!');
+            } catch (error) {
+                console.error(`Erro ao excluir item de ${tableName}:`, error);
+                showModal('Erro ao Excluir', `Não foi possível excluir o item: ${error.message}.`);
+            }
+        }
+
+        // --- Dashboard Chart Functions ---
+        
+        /**
+         * Renders all dashboard charts based on the selected time filter.
+         * @param {string} filter - 'day', 'week', or 'month'.
+         * @param {HTMLElement} clickedButton - The button that was clicked to activate the filter.
+         */
+        window.renderDashboardData = function(filter, clickedButton) {
+            // Update active button styling
+            document.querySelectorAll('#dashboard .chart-filters .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+            }
+
+            const filteredReports = filterReportsByDate(filter);
+
+            renderDefectTypeData(filteredReports);
+            renderSeverityData(filteredReports);
+            renderReporterData(filteredReports);
+        }
+
+        /**
+         * Filters reports based on the given time period.
+         * @param {string} period - 'day', 'week', or 'month'.
+         * @returns {Array<object>} Filtered reports.
+         */
+        function filterReportsByDate(period) {
+            const now = new Date();
+            let startDate;
+
+            switch (period) {
+                case 'day':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    break;
+                case 'week':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()); // Start of current week (Sunday)
+                    break;
+                case 'month':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    break;
+                default:
+                    return savedDocuments; // No filter
+            }
+            
+            return savedDocuments.filter(report => new Date(report.date) >= startDate);
+        }
+
+        /**         * Renders the "Contagem de Defeitos por Tipo" data.*/
+
+        function renderDefectTypeData(reports) {
+            const defectCounts = {};
+            reports.forEach(report => {
+                let defectType = 'Outros';
+                if (report.form_data && report.form_data.reportType) {
+                    if (report.form_data.reportType === 'non-conformity' && report.form_data.nonConformityType) {
+                        defectType = report.form_data.nonConformityType;
+                    } else if (report.form_data.reportType === 'injection-failure' && report.form_data.failureType) {
+                        defectType = report.form_data.failureType;
+                    } else if (report.form_data.reportType === 'wrong-material') {
+                        defectType = 'Material Errado'; // Specific label for this type
+                    } else {
+                        defectType = report.form_data.reportType; // Fallback to main type
+                    }
+                }
+                defectCounts[defectType] = (defectCounts[defectType] || 0) + 1;
+            });
+
+            const dataDisplayDiv = document.getElementById('defectTypeData');
+            if (Object.keys(defectCounts).length === 0) {
+                dataDisplayDiv.innerHTML = 'Nenhum dado disponível.';
+                return;
+            }
+
+            let html = '';
+            for (const type in defectCounts) {
+                html += `<div class="chart-data-item"><span>${type}:</span> <span>${defectCounts[type]}</span></div>`;
+            }
+            dataDisplayDiv.innerHTML = html;
+        }
+
+        /**
+         * Renders the "Nível de Gravidade" chart.
+         * @param {Array<object>} reports - The reports data to analyze.
+         */
+        function renderSeverityData(reports) {
+            const severityCounts = { 'low': 0, 'medium': 0, 'high': 0, 'critical': 0 };
+            reports.forEach(report => {
+                if (report.form_data && report.form_data.severity) {
+                    const severity = report.form_data.severity.toLowerCase();
+                    if (severityCounts.hasOwnProperty(severity)) {
+                        severityCounts[severity]++;
+                    }
+                }
+            });
+
+            const dataDisplayDiv = document.getElementById('severityData');
+            if (Object.values(severityCounts).every(count => count === 0)) {
+                dataDisplayDiv.innerHTML = 'Nenhum dado disponível.';
+                return;
+            }
+
+            let html = '';
+            const labelsMap = { 'low': 'Baixa', 'medium': 'Média', 'high': 'Alta', 'critical': 'Crítica' };
+            for (const severity in severityCounts) {
+                html += `<div class="chart-data-item"><span>${labelsMap[severity]}:</span> <span>${severityCounts[severity]}</span></div>`;
+            }
+            dataDisplayDiv.innerHTML = html;
+                }
+
+        /**
+         * Renders the "Relatórios por Inspetor" chart.
+         * @param {Array<object>} reports - The reports data to analyze.
+         */
+        function renderReporterData(reports) {
+            const reporterCounts = {};
+            reports.forEach(report => {
+                if (report.inspector) {
+                    reporterCounts[report.inspector] = (reporterCounts[report.inspector] || 0) + 1;
+                }
+            });
+
+           const dataDisplayDiv = document.getElementById('reporterData');
+            if (Object.keys(reporterCounts).length === 0) {
+                dataDisplayDiv.innerHTML = 'Nenhum dado disponível.';
+                return;
+            }
+
+            let html = '';
+            for (const reporter in reporterCounts) {
+                html += `<div class="chart-data-item"><span>${reporter}:</span> <span>${reporterCounts[reporter]}</span></div>`;
+            }
+            dataDisplayDiv.innerHTML = html;
+        }
+
+
+        // --- Initialization ---
+
+        // Initialize the application when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', async function() {
+            document.getElementById('date').valueAsDate = new Date(); // Set current date
+            await loadAppSettings(); // Load app settings first
+            await loadConfigItems('roles'); // Load roles
+            await loadConfigItems('departments'); // Load departments
+            await loadConfigItems('machines'); // Load machines
+            await loadConfigItems('molds'); // Load molds
+            await loadConfigItems('parts'); // Load parts
+            await loadDocuments(); // Load any previously saved documents from Supabase
+            generateReportNumber(); // Generate the first report number
+            populateReportFormSelects(); // Populate selects in report form on load
+            renderDashboardData('day', document.querySelector('#dashboard .chart-filters .btn:first-child')); // Initial dashboard render
+        });
+    </script>
+</body>
+</html>
