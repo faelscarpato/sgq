@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Qualidade v3.0</title>
+
+    <!-- Tailwind CSS para um design moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase Client -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <!-- jsPDF para geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Ionicons para ícones elegantes -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilos personalizados para aprimorar a aparência e as animações */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Animações de transição de página */
+        .page {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Esconde as barras de rolagem */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animação de carregamento (spinner) */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-left-color: #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner-dark {
+            border-color: rgba(0, 0, 0, 0.1);
+            border-left-color: #2563EB;
+        }
+
+        /* Estilo para o toast de notificação */
+        #toast-notification {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: top 0.4s ease-in-out;
+        }
+
+        #toast-notification.show {
+            top: 20px;
+        }
+
+        .toast-success { background-color: #10B981; }
+        .toast-error { background-color: #EF4444; }
+        .toast-info { background-color: #3B82F6; }
+
+        /* Estilo para o Modal */
+        #modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+
+        #modal-content {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background-color: #e2e8f0;
+            border-radius: 0.5rem;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            50% {
+                opacity: .5;
+            }
+        }
+        .image-preview-box {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #d1d5db;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9fafb;
+            color: #6b7280;
+            font-weight: 500;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .image-preview-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app-container" class="max-w-5xl mx-auto bg-white min-h-screen">
+        <!-- Tela de Carregamento Inicial-->
+        <div id="loading-screen" class="p-8 flex flex-col items-center justify-center h-screen">
+            <div class="spinner spinner-dark w-12 h-12"></div>
+            <p class="mt-6 text-lg font-semibold text-gray-600">Conectando ao Sistema de Gestão...</p>
+        </div>
+
+        <!-- Conteúdo principal da aplicação -->
+        <div id="main-content" class="hidden">
+            <!-- As telas serão renderizadas aqui -->
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div id="toast-notification"></div>
+
+    <!-- Modal Genérico -->
+    <div id="modal-container" class="hidden fixed inset-0 z-50">
+        <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-50"></div>
+        <div id="modal-content" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl w-full max-w-md p-6">
+            <!-- Conteúdo do Modal será injetado aqui -->
+        </div>
+    </div>
+
+    <script>
+        // =================================================================================
+        // CONFIGURAÇÃO DO SUPABASE E ESTADO DA APLICAÇÃO
+        // =================================================================================
+
+        // IMPORTANTE: Substitua com suas credenciais do Supabase
+        const SUPABASE_URL = 'https://ranhhacbgyfpzrjdynnd.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhbmhoYWNiZ3lmcHpyamR5bm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MDU4OTEsImV4cCI6MjA1OTQ4MTg5MX0.Ey-X4Tz8krKHSICnYdHdBaI3q5WcRgUVwA8jOhfMr7Y';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const AppState = {
+            documents: [],
+            user: null, // Futuramente para autenticação
+            currentPage: 'home',
+            history: ['home'],
+            isLoading: true,
+            error: null,
+            documentTypes: [
+                { id: 'non-conformity', name: 'Relatório de Não Conformidade', icon: 'alert-circle-outline' },
+                { id: 'injection-failure', name: 'Falha de Injeção Plástica', icon: 'construct-outline' },
+                { id: 'wrong-material', name: 'Matéria-Prima Incorreta', icon: 'flask-outline' },
+            ],
+            selectedDocType: null,
+        };
+
+        // =================================================================================
+        // LÓGICA DE API (SUPABASE) E CACHE (LocalStorage)
+        // =================================================================================
+
+        const ApiService = {
+            async fetchDocuments() {
+                const { data, error } = await supabase
+                    .from('documents')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Erro ao buscar documentos:', error);
+                    if (error.message.toLowerCase().includes('failed to fetch')) {
+                        throw new Error('Falha de rede ou CORS. Verifique sua conexão e as configurações de CORS no seu projeto Supabase.');
+                    }
+                    throw new Error('Não foi possível conectar ao banco de dados: ' + error.message);
+                }
+                
+                localStorage.setItem('qms_documents', JSON.stringify(data));
+                return data;
+            },
+
+            async createDocument(docData) {
+                const { data, error } = await supabase
+                    .from('documents')
+                    .insert([docData])
+                    .select();
+
+                if (error) {
+                    console.error('Erro ao criar documento:', error);
+                    if (error.message.toLowerCase().includes('failed to fetch')) {
+                        throw new Error('Falha de rede ou CORS ao criar documento. Verifique sua conexão e as configurações de CORS no seu projeto Supabase.');
+                    }
+                    throw new Error('Falha ao salvar o novo documento: ' + error.message);
+                }
+                return data[0];
+            },
+
+            async updateDocumentStatus(id, status, user) {
+                const updates = {
+                    status,
+                    updated_at: new Date().toISOString()
+                };
+                if (status === 'approved') {
+                    updates.approved_by = user || 'Admin';
+                    updates.approval_date = new Date().toISOString();
+                }
+
+                const { data, error } = await supabase
+                    .from('documents')
+                    .update(updates)
+                    .eq('id', id)
+                    .select();
+
+                if (error) {
+                    console.error('Erro ao atualizar status:', error);
+                    if (error.message.toLowerCase().includes('failed to fetch')) {
+                        throw new Error('Falha de rede ou CORS ao atualizar status. Verifique sua conexão e as configurações de CORS no seu projeto Supabase.');
+                    }
+                    throw new Error('Não foi possível atualizar o status do documento: ' + error.message);
+                }
+                return data[0];
+            },
+
+            async generateContentWithAI(context) {
+                // Simulação de chamada de IA para evitar a necessidade de uma chave de API real no exemplo.
+                console.log("Simulando chamada de IA com contexto:", context);
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+                return {
+                    description: `(Gerado por IA) - Com base na descrição "${context.description}", foi identificado um problema crítico de qualidade.`,
+                    findings: ['As dimensões do produto estão fora das especificações (desvio de +2mm).', 'Acabamento superficial apresenta rugosidade excessiva.'],
+                    rootCause: '(Gerado por IA) - A análise preliminar aponta para uma flutuação na temperatura do molde de injeção.',
+                    recommendations: ['Pausar a produção e realizar uma inspeção completa na máquina.', 'Revisar e calibrar os sensores de temperatura do molde.'],
+                    affectedProducts: ['Produto X-123 (Lote #5548)'],
+                };
+            },
+            
+            async analyzePartsWithAI(base64ImageStandard, base64ImageProduced) {
+                const apiKey = "AIzaSyAVw-MT-Gb-4Wdz0XEq4vJ_GH4pWwfY3qU"; // Será fornecido pelo ambiente
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const prompt = "Você é um inspetor de qualidade de plásticos altamente experiente. Compare a 'Peça Padrão' com a 'Peça Produzida'. Aponte, em formato de lista (bullet points), todas as diferenças, defeitos, variações de cor, textura ou dimensões. Seja detalhado e técnico em sua análise. Se as peças forem idênticas, confirme isso claramente. Inicie sua resposta com um resumo de uma frase.";
+
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: "image/jpeg", data: base64ImageStandard } },
+                            { inline_data: { mime_type: "image/jpeg", data: base64ImageProduced } }
+                        ]
+                    }]
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        console.error("Erro da API Gemini:", errorBody);
+                        throw new Error(`A API Gemini respondeu com o status ${response.status}.`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("Resposta inválida da API Gemini.");
+                    }
+                } catch (error) {
+                    console.error("Erro ao chamar a API Gemini:", error);
+                    throw new Error("Não foi possível completar a análise de IA.");
+                }
+            }
+        };
+
+        // =================================================================================
+        // RENDERIZAÇÃO DE UI E TEMPLATES
+        // =================================================================================
+
+        const UI = {
+            renderPage(pageName, params = null) {
+                const mainContent = document.getElementById('main-content');
+                mainContent.innerHTML = ''; // Limpa a tela
+                let template = '';
+
+                switch (pageName) {
+                    case 'home':
+                        template = this.templates.homeScreen();
+                        break;
+                    case 'new-document':
+                        template = this.templates.newDocumentScreen();
+                        break;
+                    case 'document-detail':
+                        template = this.templates.documentDetailScreen(params.id);
+                        break;
+                    case 'quality-management':
+                        template = this.templates.qualityManagementScreen();
+                        break;
+                }
+                mainContent.innerHTML = template;
+
+                // Executa lógicas pós-renderização
+                if (pageName === 'home') this.postRender.home();
+                if (pageName === 'new-document') this.postRender.newDocument();
+                if (pageName === 'document-detail') this.postRender.documentDetail(params.id);
+                if (pageName === 'quality-management') this.postRender.qualityManagement();
+            },
+
+            templates: {
+                homeScreen() {
+                    return `
+                        <div class="page">
+                            <header class="bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center">
+                                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Gestão de Qualidade</h1>
+                                <button onclick="App.navigate('new-document')" class="flex items-center bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md transform hover:-translate-y-0.5 text-sm sm:text-base">
+                                    <ion-icon name="add-outline" class="mr-2 text-xl"></ion-icon>
+                                    Novo Documento
+                                </button>
+                            </header>
+                            <main class="p-4 sm:p-6 space-y-6 bg-gray-50">
+                                <div class="relative rounded-xl overflow-hidden cursor-pointer group shadow-lg" onclick="App.navigate('quality-management')">
+                                    <img src="https://placehold.co/1200x300/2563EB/FFFFFF?text=Análise+de+Peças+com+IA" alt="Banner de Análise com IA" class="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6 text-white">
+                                        <h2 class="text-xl font-bold">Painel de Análise com IA</h2>
+                                        <p class="text-sm text-blue-200">Compare peças e identifique defeitos usando Inteligência Artificial.</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                                        <p id="stats-total" class="text-3xl font-extrabold text-blue-600">0</p>
+                                        <p class="text-sm font-medium text-gray-500">Total de Documentos</p>
+                                    </div>
+                                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                                        <p id="stats-drafts" class="text-3xl font-extrabold text-yellow-500">0</p>
+                                        <p class="text-sm font-medium text-gray-500">Em Aberto</p>
+                                    </div>
+                                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                                        <p id="stats-approved" class="text-3xl font-extrabold text-green-500">0</p>
+                                        <p class="text-sm font-medium text-gray-500">Aprovados</p>
+                                    </div>
+                                </div>
+
+                                <h2 class="text-xl font-semibold text-gray-900 pt-4">Documentos Recentes</h2>
+                                <div id="documents-list" class="space-y-4">
+                                    ${this.documentCardSkeleton(3)}
+                                </div>
+                                <div id="empty-state" class="hidden text-center py-16">
+                                    <ion-icon name="file-tray-stacked-outline" class="text-7xl text-gray-300 mx-auto"></ion-icon>
+                                    <p class="mt-4 text-xl font-semibold text-gray-700">Nenhum documento encontrado</p>
+                                    <p class="text-base text-gray-500 mb-6">Comece criando seu primeiro documento de qualidade.</p>
+                                    <button onclick="App.navigate('new-document')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md">
+                                        Criar Documento
+                                    </button>
+                                </div>
+                            </main>
+                        </div>
+                    `;
+                },
+
+                documentCard(doc) {
+                    const getStatusInfo = (status) => {
+                        const statuses = {
+                            draft: { text: 'Rascunho', color: 'gray', icon: 'create-outline' },
+                            submitted: { text: 'Submetido', color: 'blue', icon: 'paper-plane-outline' },
+                            approved: { text: 'Aprovado', color: 'green', icon: 'checkmark-circle-outline' },
+                            rejected: { text: 'Rejeitado', color: 'red', icon: 'close-circle-outline' },
+                        };
+                        return statuses[status] || statuses.draft;
+                    };
+                    const statusInfo = getStatusInfo(doc.status);
+                    const typeInfo = AppState.documentTypes.find(t => t.id === doc.type) || { name: doc.type, icon: 'document-outline' };
+                    const formatDate = (timestamp) => new Date(timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    return `
+                        <div onclick="App.navigate('document-detail', { id: '${doc.id}' })" class="bg-white p-4 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer border-l-4 border-${statusInfo.color}-500">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center min-w-0">
+                                    <ion-icon name="${typeInfo.icon}" class="text-xl text-${statusInfo.color}-600 mr-3 flex-shrink-0"></ion-icon>
+                                    <h3 class="font-bold text-gray-800 text-lg truncate">${doc.title}</h3>
+                                </div>
+                                <span class="text-xs font-bold text-${statusInfo.color}-600 bg-${statusInfo.color}-100 px-3 py-1 rounded-full flex items-center flex-shrink-0 ml-2">
+                                    <ion-icon name="${statusInfo.icon}" class="mr-1"></ion-icon>
+                                    ${statusInfo.text}
+                                </span>
+                            </div>
+                            <div class="text-xs text-gray-500 flex items-center justify-between mt-2">
+                                <span>Criado por: <span class="font-medium">${doc.created_by || 'Sistema'}</span></span>
+                                <span>Data: <span class="font-medium">${formatDate(doc.created_at)}</span></span>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                documentCardSkeleton(count) {
+                    let skeletonHTML = '';
+                    for (let i = 0; i < count; i++) {
+                        skeletonHTML += `
+                            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-gray-200 animate-pulse">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center w-2/3">
+                                        <div class="bg-gray-300 w-6 h-6 rounded-full mr-3"></div>
+                                        <div class="bg-gray-300 w-full h-5 rounded"></div>
+                                    </div>
+                                    <div class="bg-gray-300 w-20 h-5 rounded-full"></div>
+                                </div>
+                                <div class="flex justify-between w-full mt-3">
+                                    <div class="bg-gray-300 w-1/3 h-4 rounded"></div>
+                                    <div class="bg-gray-300 w-1/4 h-4 rounded"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return skeletonHTML;
+                },
+
+                newDocumentScreen() {
+                    return `
+                        <div class="page">
+                            <header class="bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                                <button onclick="App.goBack()" class="flex items-center text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <ion-icon name="arrow-back-outline" class="mr-2"></ion-icon>
+                                    Voltar
+                                </button>
+                                <h1 class="text-xl font-bold text-gray-900">Criar Novo Documento</h1>
+                                <div class="w-24"></div>
+                            </header>
+                            <main class="p-6 space-y-8 bg-gray-50">
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h2 class="text-lg font-semibold text-gray-700 mb-4">1. Detalhes Iniciais</h2>
+                                    <form id="new-doc-form" class="space-y-4">
+                                        <div>
+                                            <label for="doc-title" class="block text-sm font-medium text-gray-700 mb-1">Título do Documento</label>
+                                            <input type="text" id="doc-title" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Ex: Relatório de Não Conformidade Lote 5548" required>
+                                            <p id="doc-title-error" class="text-red-500 text-xs mt-1 hidden">Título é obrigatório.</p>
+                                        </div>
+                                        <div>
+                                            <label for="doc-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição do Problema</label>
+                                            <textarea id="doc-description" rows="4" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Descreva o problema ou a situação com o máximo de detalhes possível para a IA." required></textarea>
+                                            <p id="doc-description-error" class="text-red-500 text-xs mt-1 hidden">Descrição é obrigatória.</p>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h2 class="text-lg font-semibold text-gray-700 mb-4">2. Tipo de Documento</h2>
+                                    <p id="doc-type-error" class="text-red-500 text-xs mb-2 hidden">Por favor, selecione um tipo de documento.</p>
+                                    <div id="doc-type-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <!-- Tipos de documento serão inseridos aqui -->
+                                    </div>
+                                </div>
+                                <div class="pt-4">
+                                    <button id="generate-btn" onclick="App.handleGenerate()" class="w-full flex justify-center items-center bg-blue-600 text-white px-4 py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:bg-blue-400 disabled:shadow-none disabled:transform-none">
+                                        <ion-icon name="sparkles-outline" class="mr-3 text-2xl"></ion-icon>
+                                        <span id="generate-btn-text">Gerar Relatório com IA</span>
+                                        <div id="generate-spinner" class="spinner ml-3 hidden"></div>
+                                    </button>
+                                </div>
+                            </main>
+                        </div>
+                    `;
+                },
+
+                documentDetailScreen(docId) {
+                    const doc = AppState.documents.find(d => d.id === docId);
+                    if (!doc) return `<div class="p-8 text-center text-red-500">Documento não encontrado. <a href="#" onclick="App.navigate('home')">Voltar para o início</a></div>`;
+
+                    const formatDate = (timestamp) => timestamp ? new Date(timestamp).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' }) : 'N/A';
+                    const getStatusInfo = (status) => {
+                        const statuses = {
+                            draft: { text: 'Rascunho', color: 'gray', icon: 'create-outline' },
+                            submitted: { text: 'Submetido', color: 'blue', icon: 'paper-plane-outline' },
+                            approved: { text: 'Aprovado', color: 'green', icon: 'checkmark-circle-outline' },
+                            rejected: { text: 'Rejeitado', color: 'red', icon: 'close-circle-outline' },
+                        };
+                        return statuses[status] || statuses.draft;
+                    };
+                    const statusInfo = getStatusInfo(doc.status);
+
+                    const createSection = (title, content) => {
+                        if (!content || (Array.isArray(content) && content.length === 0)) return '';
+                        return `
+                            <div class="bg-white p-5 rounded-xl shadow-sm">
+                                <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">${title}</h3>
+                                ${Array.isArray(content) ?
+                                     `<ul class="space-y-2 text-gray-700">${content.map(item => `<li class="flex items-start"><ion-icon name="chevron-forward-outline" class="text-blue-500 mt-1 mr-2 flex-shrink-0"></ion-icon><span>${item}</span></li>`).join('')}</ul>` :
+                                    `<p class="text-gray-700 leading-relaxed">${content}</p>`
+                                }
+                            </div>`;
+                    };
+
+                    const createInfoRow = (label, value) => {
+                        if (!value) return '';
+                        return `
+                            <div class="flex py-2 border-b border-gray-100 flex-wrap">
+                                <span class="font-medium text-gray-500 w-full sm:w-40 flex-shrink-0">${label}:</span>
+                                <span class="text-gray-800 font-medium break-words min-w-0">${value}</span>
+                            </div>`;
+                    };
+
+                    return `
+                        <div class="page">
+                            <header class="bg-white border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-10">
+                                <button onclick="App.goBack()" class="flex items-center text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <ion-icon name="arrow-back-outline" class="mr-2"></ion-icon>
+                                    Voltar
+                                </button>
+                                <h1 class="text-xl font-bold text-gray-900 truncate px-4 hidden sm:block">Detalhes do Documento</h1>
+                                <div class="text-sm font-bold text-${statusInfo.color}-600 bg-${statusInfo.color}-100 px-4 py-2 rounded-full flex items-center">
+                                    <ion-icon name="${statusInfo.icon}" class="mr-2"></ion-icon>
+                                    ${statusInfo.text}
+                                </div>
+                            </header>
+                            <main class="p-4 sm:p-6 space-y-6 bg-gray-50">
+                                <div class="bg-white p-6 rounded-xl shadow-md">
+                                    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2 break-words">${doc.title}</h2>
+                                    <p class="text-sm text-gray-500 break-all">ID: ${doc.id}</p>
+                                </div>
+
+                                <div class="bg-white p-5 rounded-xl shadow-sm">
+                                    <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">Informações Gerais</h3>
+                                    ${createInfoRow('Tipo', (AppState.documentTypes.find(t => t.id === doc.type) || {}).name)}
+                                    ${createInfoRow('Criado por', doc.created_by)}
+                                    ${createInfoRow('Criado em', formatDate(doc.created_at))}
+                                    ${createInfoRow('Última Atualização', formatDate(doc.updated_at))}
+                                    ${createInfoRow('Aprovado por', doc.approved_by)}
+                                    ${createInfoRow('Data de Aprovação', formatDate(doc.approval_date))}
+                                </div>
+
+                                ${createSection('Descrição Detalhada', doc.content.description)}
+                                ${createSection('Constatações e Achados', doc.content.findings)}
+                                ${createSection('Análise de Causa Raiz', doc.content.rootCause)}
+                                ${createSection('Recomendações', doc.content.recommendations)}
+                                ${createSection('Produtos Afetados', doc.content.affectedProducts)}
+
+                                <div id="actions-container" class="bg-white p-5 rounded-xl shadow-sm">
+                                    <!-- Ações serão renderizadas aqui -->
+                                </div>
+                            </main>
+                        </div>
+                    `;
+                },
+                
+                documentActions(doc) {
+                     if (!doc) return '';
+                     switch(doc.status) {
+                         case 'submitted':
+                             return `
+                                <h3 class="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">Ações</h3>
+                                <div class="flex flex-col sm:flex-row gap-4">
+                                    <button onclick="App.handleStatusUpdate('${doc.id}', 'approved')" class="flex-1 flex items-center justify-center bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                                        <ion-icon name="checkmark-outline" class="mr-2"></ion-icon> Aprovar
+                                    </button>
+                                    <button onclick="App.handleStatusUpdate('${doc.id}', 'rejected')" class="flex-1 flex items-center justify-center bg-red-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
+                                        <ion-icon name="close-outline" class="mr-2"></ion-icon> Rejeitar
+                                    </button>
+                                </div>`;
+                         case 'draft':
+                             return `
+                                <h3 class="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">Ações</h3>
+                                <button onclick="App.handleStatusUpdate('${doc.id}', 'submitted')" class="w-full flex items-center justify-center bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
+                                    <ion-icon name="paper-plane-outline" class="mr-2"></ion-icon> Submeter para Aprovação
+                                </button>`;
+                         default:
+                             return `<p class="text-center text-gray-500">Nenhuma ação disponível para este estado.</p>`;
+                     }
+                },
+
+                qualityManagementScreen() {
+                    return `
+                        <div class="page">
+                            <header class="bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                                <button onclick="App.goBack()" class="flex items-center text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <ion-icon name="arrow-back-outline" class="mr-2"></ion-icon>
+                                    Voltar
+                                </button>
+                                <h1 class="text-xl font-bold text-gray-900">Painel de Análise com IA</h1>
+                                <div class="w-24"></div>
+                            </header>
+                            <main class="p-4 sm:p-6 space-y-6 bg-gray-50 no-scrollbar">
+                                <div id="part-analysis-tool" class="bg-white p-6 rounded-xl shadow-sm">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <!-- Coluna Peça Padrão -->
+                                        <div class="space-y-3">
+                                            <h2 class="text-lg font-semibold text-gray-700">1. Peça Padrão</h2>
+                                            <div id="preview-standard" class="image-preview-box">Clique para carregar a imagem</div>
+                                            <input type="file" id="upload-standard" class="hidden" accept="image/*">
+                                        </div>
+                                        <!-- Coluna Peça Produzida -->
+                                        <div class="space-y-3">
+                                            <h2 class="text-lg font-semibold text-gray-700">2. Peça Produzida</h2>
+                                            <div id="preview-produced" class="image-preview-box">Clique para carregar a imagem</div>
+                                            <input type="file" id="upload-produced" class="hidden" accept="image/*">
+                                        </div>
+                                    </div>
+                                    <!-- Botão de Análise -->
+                                    <div class="mt-6">
+                                        <button id="analyze-parts-btn" class="w-full flex justify-center items-center bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold text-lg hover:bg-indigo-700 transition-colors shadow-lg disabled:bg-indigo-400">
+                                            <ion-icon name="analytics-outline" class="mr-3 text-2xl"></ion-icon>
+                                            <span id="analyze-btn-text">Analisar com IA</span>
+                                            <div id="analyze-spinner" class="spinner ml-3 hidden"></div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Seção de Resultados -->
+                                <div id="analysis-result-container" class="bg-white p-6 rounded-xl shadow-sm hidden">
+                                     <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Resultado da Análise</h2>
+                                     <div id="analysis-result" class="text-gray-700 leading-relaxed space-y-2"></div>
+                                     <div id="analysis-export-buttons" class="mt-6 flex flex-col sm:flex-row gap-4 hidden">
+                                        <button onclick="App.exportAnalysisToPDF()" class="flex-1 flex items-center justify-center bg-red-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
+                                            <ion-icon name="document-text-outline" class="mr-2"></ion-icon> Exportar para PDF
+                                        </button>
+                                        <button onclick="App.exportAnalysisToWord()" class="flex-1 flex items-center justify-center bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
+                                            <ion-icon name="document-outline" class="mr-2"></ion-icon> Exportar para Word
+                                        </button>
+                                    </div>
+                                </div>
+                            </main>
+                        </div>
+                    `;
+                }
+            },
+
+            postRender: {
+                home() {
+                    if (AppState.isLoading) return;
+
+                    const listEl = document.getElementById('documents-list');
+                    const emptyEl = document.getElementById('empty-state');
+
+                    if (AppState.documents.length === 0) {
+                        listEl.innerHTML = '';
+                        emptyEl.classList.remove('hidden');
+                    } else {
+                        emptyEl.classList.add('hidden');
+                        listEl.innerHTML = AppState.documents.map(doc => UI.templates.documentCard(doc)).join('');
+                    }
+
+                    document.getElementById('stats-total').textContent = AppState.documents.length;
+                    const openDocs = AppState.documents.filter(d => d.status === 'draft' || d.status === 'submitted').length;
+                    document.getElementById('stats-drafts').textContent = openDocs;
+                    document.getElementById('stats-approved').textContent = AppState.documents.filter(d => d.status === 'approved').length;
+                },
+
+                newDocument() {
+                    const container = document.getElementById('doc-type-container');
+                    container.innerHTML = AppState.documentTypes.map(type => `
+                        <button
+                            type="button"
+                            onclick="App.selectDocType(this, '${type.id}')"
+                            class="w-full text-left p-4 border rounded-lg transition-all duration-200 flex items-center bg-white text-gray-700 border-gray-300 hover:border-blue-500 hover:bg-blue-50">
+                            <ion-icon name="${type.icon}" class="mr-4 text-2xl text-gray-500"></ion-icon>
+                            <span class="font-semibold">${type.name}</span>
+                        </button>
+                    `).join('');
+                },
+
+                documentDetail(docId) {
+                    const doc = AppState.documents.find(d => d.id === docId);
+                    const actionsContainer = document.getElementById('actions-container');
+                    if (actionsContainer) {
+                        actionsContainer.innerHTML = UI.templates.documentActions(doc);
+                    }
+                },
+                
+                qualityManagement() {
+                    document.getElementById('preview-standard').addEventListener('click', () => document.getElementById('upload-standard').click());
+                    document.getElementById('preview-produced').addEventListener('click', () => document.getElementById('upload-produced').click());
+                    document.getElementById('upload-standard').addEventListener('change', (e) => App.handleImagePreview(e, 'preview-standard'));
+                    document.getElementById('upload-produced').addEventListener('change', (e) => App.handleImagePreview(e, 'preview-produced'));
+                    document.getElementById('analyze-parts-btn').addEventListener('click', App.handlePartAnalysis);
+                }
+            },
+
+            showToast(message, type = 'success') {
+                const toastEl = document.getElementById('toast-notification');
+                toastEl.textContent = message;
+                toastEl.className = `toast-${type} show`;
+                setTimeout(() => {
+                    toastEl.classList.remove('show');
+                }, 4000);
+            },
+
+            showModal(config) {
+                const modalContainer = document.getElementById('modal-container');
+                const modalContent = document.getElementById('modal-content');
+                modalContent.innerHTML = `
+                    <h2 class="text-xl font-bold mb-4">${config.title}</h2>
+                    <p class="text-gray-600 mb-6">${config.message}</p>
+                    <div class="flex justify-end gap-4">
+                        <button onclick="UI.hideModal()" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors">Cancelar</button>
+                        <button id="modal-confirm-btn" class="px-4 py-2 rounded-lg text-white ${config.confirmColor || 'bg-blue-600 hover:bg-blue-700'} transition-colors">${config.confirmText}</button>
+                    </div>
+                `;
+                document.getElementById('modal-confirm-btn').onclick = () => {
+                    config.onConfirm();
+                    this.hideModal();
+                };
+                modalContainer.classList.remove('hidden');
+            },
+
+            hideModal() {
+                document.getElementById('modal-container').classList.add('hidden');
+            }
+        };
+
+        // =================================================================================
+        // LÓGICA PRINCIPAL DA APLICAÇÃO
+        // =================================================================================
+
+        const App = {
+            async init() {
+                try {
+                    if (!SUPABASE_URL.includes('supabase.co') || SUPABASE_ANON_KEY.length < 50) {
+                         throw new Error("As credenciais do Supabase parecem inválidas ou não foram configuradas.");
+                    }
+                    
+                    const data = await ApiService.fetchDocuments();
+                    AppState.documents = data;
+                    UI.showToast('Dados sincronizados com sucesso!', 'success');
+                } catch (e) {
+                    console.warn(e.message);
+                    UI.showToast(e.message, 'error');
+                    const cachedData = localStorage.getItem('qms_documents');
+                    if (cachedData) {
+                        try {
+                            let parsedData = JSON.parse(cachedData);
+                            if (typeof parsedData === 'string') {
+                                parsedData = JSON.parse(parsedData);
+                            }
+                            AppState.documents = parsedData;
+                        } catch (parseError) {
+                            console.error("Erro ao parsear dados do cache:", parseError);
+                            AppState.documents = [];
+                        }
+                    }
+                } finally {
+                    AppState.isLoading = false;
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    this.navigate('home');
+                }
+            },
+
+            navigate(pageName, params = null) {
+                if (pageName !== AppState.currentPage) {
+                    AppState.history.push(pageName);
+                }
+                AppState.currentPage = pageName;
+                UI.renderPage(pageName, params);
+            },
+
+            goBack() {
+                if (AppState.history.length > 1) {
+                    AppState.history.pop();
+                    const previousPage = AppState.history[AppState.history.length - 1];
+                    AppState.currentPage = previousPage;
+                    UI.renderPage(previousPage);
+                }
+            },
+
+            selectDocType(buttonEl, typeId) {
+                AppState.selectedDocType = typeId;
+                document.querySelectorAll('#doc-type-container button').forEach(btn => {
+                    btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+                    btn.classList.add('bg-white', 'border-gray-300');
+                });
+                buttonEl.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                buttonEl.classList.remove('border-gray-300');
+                document.getElementById('doc-type-error').classList.add('hidden');
+            },
+
+            validateNewDocForm() {
+                let isValid = true;
+                const titleInput = document.getElementById('doc-title');
+                const descriptionInput = document.getElementById('doc-description');
+
+                document.getElementById('doc-title-error').classList.toggle('hidden', !!titleInput.value.trim());
+                document.getElementById('doc-description-error').classList.toggle('hidden', !!descriptionInput.value.trim());
+                document.getElementById('doc-type-error').classList.toggle('hidden', !!AppState.selectedDocType);
+
+                if (!titleInput.value.trim() || !descriptionInput.value.trim() || !AppState.selectedDocType) {
+                    isValid = false;
+                }
+                
+                return isValid;
+            },
+
+            async handleGenerate() {
+                if (!this.validateNewDocForm()) return;
+
+                const btn = document.getElementById('generate-btn');
+                const btnText = document.getElementById('generate-btn-text');
+                const spinner = document.getElementById('generate-spinner');
+
+                btn.disabled = true;
+                btnText.textContent = 'Gerando...';
+                spinner.classList.remove('hidden');
+
+                try {
+                    const context = {
+                        title: document.getElementById('doc-title').value,
+                        description: document.getElementById('doc-description').value,
+                        type: AppState.selectedDocType
+                    };
+
+                    const generatedContent = await ApiService.generateContentWithAI(context);
+
+                    const newDocData = {
+                        title: context.title,
+                        type: context.type,
+                        content: generatedContent,
+                        status: 'draft',
+                        created_by: 'Utilizador Local',
+                    };
+
+                    const savedDocument = await ApiService.createDocument(newDocData);
+
+                    AppState.documents.unshift(savedDocument);
+                    localStorage.setItem('qms_documents', JSON.stringify(AppState.documents));
+
+                    UI.showToast('Documento criado e salvo com sucesso!', 'success');
+                    this.navigate('document-detail', { id: savedDocument.id });
+
+                } catch (e) {
+                    UI.showToast(e.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btnText.textContent = 'Gerar Relatório com IA';
+                    spinner.classList.add('hidden');
+                    AppState.selectedDocType = null;
+                }
+            },
+
+            handleStatusUpdate(docId, newStatus) {
+                const doc = AppState.documents.find(d => d.id === docId);
+                if (!doc) return;
+
+                UI.showModal({
+                    title: 'Confirmar Alteração de Status',
+                    message: `Tem certeza de que deseja alterar o status de "${doc.title}" para "${newStatus}"?`,
+                    confirmText: 'Confirmar',
+                    confirmColor: 'bg-green-600 hover:bg-green-700',
+                    onConfirm: async () => {
+                        try {
+                            const updatedDoc = await ApiService.updateDocumentStatus(docId, newStatus, 'Admin');
+                            
+                            const docIndex = AppState.documents.findIndex(d => d.id === docId);
+                            if (docIndex !== -1) {
+                                AppState.documents[docIndex] = updatedDoc;
+                            }
+                            localStorage.setItem('qms_documents', JSON.stringify(AppState.documents));
+
+                            UI.showToast('Status atualizado com sucesso!', 'success');
+                            UI.renderPage('document-detail', { id: docId });
+
+                        } catch (e) {
+                            UI.showToast(e.message, 'error');
+                        }
+                    }
+                });
+            },
+            
+            fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            },
+
+            handleImagePreview(event, previewElementId) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const previewContainer = document.getElementById(previewElementId);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewContainer.innerHTML = `<img src="${e.target.result}" alt="Pré-visualização da imagem">`;
+                }
+                reader.readAsDataURL(file);
+            },
+
+            async handlePartAnalysis() {
+                const standardFile = document.getElementById('upload-standard').files[0];
+                const producedFile = document.getElementById('upload-produced').files[0];
+
+                if (!standardFile || !producedFile) {
+                    UI.showToast("Por favor, carregue ambas as imagens para análise.", "error");
+                    return;
+                }
+
+                const btn = document.getElementById('analyze-parts-btn');
+                const btnText = document.getElementById('analyze-btn-text');
+                const spinner = document.getElementById('analyze-spinner');
+                const resultContainer = document.getElementById('analysis-result-container');
+                const resultDiv = document.getElementById('analysis-result');
+                const exportButtons = document.getElementById('analysis-export-buttons');
+
+                btn.disabled = true;
+                btnText.textContent = 'Analisando...';
+                spinner.classList.remove('hidden');
+                resultContainer.classList.remove('hidden');
+                exportButtons.classList.add('hidden');
+                resultDiv.innerHTML = '<div class="skeleton h-20 w-full"></div>';
+
+                try {
+                    const base64Standard = await App.fileToBase64(standardFile);
+                    const base64Produced = await App.fileToBase64(producedFile);
+
+                    const analysisText = await ApiService.analyzePartsWithAI(base64Standard, base64Produced);
+                    
+                    resultDiv.innerHTML = analysisText
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br>');
+                    
+                    exportButtons.classList.remove('hidden');
+
+                } catch (e) {
+                    resultDiv.innerHTML = `<p class="text-red-500">${e.message}</p>`;
+                    UI.showToast(e.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btnText.textContent = 'Analisar com IA';
+                    spinner.classList.add('hidden');
+                }
+            },
+
+            exportAnalysisToWord() {
+                const standardImageSrc = document.querySelector('#preview-standard img')?.src;
+                const producedImageSrc = document.querySelector('#preview-produced img')?.src;
+                const analysisContent = document.getElementById('analysis-result').innerHTML;
+
+                if (!analysisContent) {
+                    UI.showToast("Não há análise para exportar.", "error");
+                    return;
+                }
+
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html lang="pt-BR">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>Análise Comparativa de Peças</title>
+                    </head>
+                    <body>
+                        <h1>Análise Comparativa de Peças</h1>
+                        <h2>Peça Padrão</h2>
+                        ${standardImageSrc ? `<img src="${standardImageSrc}" style="max-width: 400px; border: 1px solid #ccc;">` : '<p>Imagem não disponível.</p>'}
+                        <br>
+                        <h2>Peça Produzida</h2>
+                        ${producedImageSrc ? `<img src="${producedImageSrc}" style="max-width: 400px; border: 1px solid #ccc;">` : '<p>Imagem não disponível.</p>'}
+                        <br>
+                        <h2>Resultado da Análise da IA</h2>
+                        <div>${analysisContent}</div>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob(['\ufeff', htmlContent], {
+                    type: 'application/msword'
+                });
+
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "analise_pecas.doc";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                UI.showToast("Análise exportada para Word com sucesso!", "success");
+            },
+
+            async exportAnalysisToPDF() {
+                if (typeof jspdf === 'undefined') {
+                    UI.showToast("A biblioteca de PDF não foi carregada. Tente novamente.", "error");
+                    return;
+                }
+
+                const standardImageSrc = document.querySelector('#preview-standard img')?.src;
+                const producedImageSrc = document.querySelector('#preview-produced img')?.src;
+                const analysisResultDiv = document.getElementById('analysis-result');
+                
+                if (!analysisResultDiv.innerText.trim()) {
+                    UI.showToast("Não há análise para exportar.", "error");
+                    return;
+                }
+
+                UI.showToast("Gerando PDF... Isso pode levar um momento.", "info");
+
+                const { jsPDF } = jspdf;
+                const doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const margin = 15;
+                const maxWidth = doc.internal.pageSize.getWidth() - 2 * margin;
+                let y = margin;
+
+                doc.setFontSize(18);
+                doc.setFont(undefined, 'bold');
+                doc.text("Análise Comparativa de Peças", doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+                y += 15;
+
+                const addImageToPdf = async (title, imgSrc, currentY) => {
+                    if (!imgSrc) return currentY;
+                    doc.setFontSize(14);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(title, margin, currentY);
+                    currentY += 8;
+
+                    try {
+                        const img = new Image();
+                        img.src = imgSrc;
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                        });
+
+                        const aspectRatio = img.naturalWidth / img.naturalHeight;
+                        let imgWidth = maxWidth / 2;
+                        let imgHeight = imgWidth / aspectRatio;
+                        
+                        if (currentY + imgHeight > doc.internal.pageSize.getHeight() - margin) {
+                            doc.addPage();
+                            currentY = margin;
+                        }
+
+                        doc.addImage(img, 'JPEG', margin, currentY, imgWidth, imgHeight);
+                        return currentY + imgHeight + 10;
+                    } catch (e) {
+                        console.error("Erro ao carregar imagem para PDF:", e);
+                        doc.setFontSize(10);
+                        doc.setTextColor(255, 0, 0);
+                        doc.text("Erro ao carregar imagem.", margin, currentY);
+                        doc.setTextColor(0, 0, 0);
+                        return currentY + 10;
+                    }
+                };
+
+                y = await addImageToPdf("Peça Padrão", standardImageSrc, y);
+                y = await addImageToPdf("Peça Produzida", producedImageSrc, y);
+
+                if (y > doc.internal.pageSize.getHeight() - 40) { // Check space for title
+                    doc.addPage();
+                    y = margin;
+                }
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text("Resultado da Análise da IA", margin, y);
+                y += 8;
+
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'normal');
+                
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = analysisResultDiv.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+                const analysisText = tempDiv.innerText;
+
+                const lines = doc.splitTextToSize(analysisText, maxWidth);
+                
+                lines.forEach(line => {
+                    if (y > doc.internal.pageSize.getHeight() - margin) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                    doc.text(line, margin, y);
+                    y += 5; // Line height
+                });
+
+                doc.save("analise_pecas.pdf");
+            }
+        };
+
+        // =================================================================================
+        // INICIALIZAÇÃO DA APLICAÇÃO
+        // =================================================================================
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    </script>
+</body>
+</html>
