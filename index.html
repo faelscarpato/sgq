@@ -269,7 +269,7 @@
             },
             
             async analyzePartsWithAI(base64ImageStandard, base64ImageProduced) {
-                const apiKey = "AIzaSyAVw-MT-Gb-4Wdz0XEq4vJ_GH4pWwfY3qU"; // Será fornecido pelo ambiente
+                const apiKey = ""; // Será fornecido pelo ambiente
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
                 const prompt = "Você é um inspetor de qualidade de plásticos altamente experiente. Compare a 'Peça Padrão' com a 'Peça Produzida'. Aponte, em formato de lista (bullet points), todas as diferenças, defeitos, variações de cor, textura ou dimensões. Seja detalhado e técnico em sua análise. Se as peças forem idênticas, confirme isso claramente. Inicie sua resposta com um resumo de uma frase.";
